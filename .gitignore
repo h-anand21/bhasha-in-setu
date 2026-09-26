@@ -23,6 +23,19 @@ dist-ssr
 # Vercel
 .vercel/
 
+# Expo Mobile
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/android/
+mobile/ios/
+mobile/*.jks
+mobile/*.keystore
+mobile/*.log
+
+
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

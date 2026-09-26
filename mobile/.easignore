@@ -1,0 +1,25 @@
+# Dependencies (EAS will run npm install remotely in a clean container)
+node_modules/
+
+# Local Expo build & cache folders
+.expo/
+dist/
+web-build/
+
+# Native folders (EAS will run expo prebuild remotely)
+android/
+ios/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Git & System
+.git/
+.DS_Store
+*.orig.*
+
+# Local environment variables
+.env*.local

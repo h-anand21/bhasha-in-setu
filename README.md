@@ -370,15 +370,46 @@ You can deploy directly from your local terminal using the Vercel CLI:
 
 ---
 
-## 🛡️ 8. Offline Resilience & Edge Performance
+## 📱 8. Native Mobile App — Expo SDK 52 & Embedded SQLite
 
-- **Zero Cloud Latency:** The entire translation pipeline, tokenization engine, and OCR workers run locally in the browser runtime.
-- **Low-Cost Hardware Optimized:** Tested on entry-level Android tablets (2GB RAM) commonly deployed in government primary schools.
-- **No Internet Required:** Once loaded or installed as a PWA, all features function completely without Wi-Fi, cellular networks, or server infrastructure.
+In addition to the Web PWA, Bhasha Setu includes a full-featured **Native Mobile Application** in the [`mobile/`](./mobile) directory, built on **Expo SDK 52** with **SQLite (`expo-sqlite`)** local storage, hardware microphone speech recognition, and native camera vision for 2 GB RAM Android school tablets.
+
+### Mobile Feature Capabilities:
+- **Embedded SQLite Core (`bhasha_setu.db`):** Replaces browser storage with SQLite tables (`lessons`, `progress_events`, `saved_worksheets`, `settings`) for robust zero-internet data persistence.
+- **🎙️ Live Classroom Speech:** Real-time speech input with animated soundwave equalizers and offline acoustic playback via `expo-speech`.
+- **📷 Blackboard & Textbook OCR:** Camera capture via `expo-image-picker` with instant dual-script translation.
+- **📝 Bilingual Worksheets & Flashcards:** Interactive flashcards with native audio pronunciation, and 1-click **PDF print & share** via `expo-print` and `expo-sharing`.
+- **📚 16 NIPUN Bharat Lessons:** Offline lesson library with 1-click term download, search by keyword, and category filtering.
+
+### Running the Mobile App Locally:
+
+```bash
+# 1. Navigate to the mobile folder
+cd mobile
+
+# 2. Install dependencies
+npm install
+
+# 3. Start Expo development server
+npm start
+# or
+npx expo start -c
+```
+- **Run on Physical Phone / Tablet:** Install the **Expo Go** app from Google Play Store or App Store and scan the QR code.
+- **Run on Android Emulator:** Press `a` in the terminal.
+- **Run on iOS Simulator:** Press `i` in the terminal.
 
 ---
 
-## 📜 9. License
+## 🛡️ 9. Offline Resilience & Edge Performance
+
+- **Zero Cloud Latency:** The entire translation pipeline, tokenization engine, and OCR workers run locally in the browser and mobile device runtime.
+- **Low-Cost Hardware Optimized:** Tested on entry-level Android tablets (2GB RAM) commonly deployed in government primary schools.
+- **No Internet Required:** Once loaded or installed, all features function completely without Wi-Fi, cellular networks, or server infrastructure.
+
+---
+
+## 📜 10. License
 
 This project is open-source under the MIT License, designed to foster educational equity and mother-tongue-based multilingual education (MTB-MLE) across indigenous communities.
 

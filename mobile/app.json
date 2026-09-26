@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Bhasha Setu",
+    "slug": "bhasha-setu",
+    "version": "1.0.0",
+    "orientation": "default",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#F9F6F0"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bhashasetu.app"
+    },
+    "android": {
+      "package": "com.bhashasetu.app",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-sqlite"
+    ]
+  }
+}
