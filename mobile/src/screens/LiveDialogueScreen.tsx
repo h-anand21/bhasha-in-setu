@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Animated,
-  Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import {
   Mic,
@@ -17,24 +17,41 @@ import {
   History,
   RotateCcw,
   X,
-  Keyboard as KeyboardIcon,
+  Square,
+  Radio,
+  CheckCircle2,
+  Info,
 } from "lucide-react-native";
 import { Colors } from "../theme/colors";
 import { useLanguage } from "../context/LanguageContext";
 import { translate, type TranslationResult } from "../lib/translate";
 import { speakNative } from "../services/speech";
 import { logProgressEvent } from "../services/database";
+import { startAudioRecording, stopAudioRecording } from "../services/stt";
 
 export function LiveDialogueScreen() {
   const { lang, meta } = useLanguage();
   const [inputText, setInputText] = useState("नमस्ते बच्चों");
-  const [isListening, setIsListening] = useState(false);
-  const [result, setResult] = useState<TranslationResult | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const [result, setResult] = useState<TranslationResult | null>(() =>
+    translate("नमस्ते बच्चों", lang)
+  );
   const [history, setHistory] = useState<
     { hindi: string; native: string; roman: string; timestamp: string }[]
-  >([]);
+  >([
+    {
+      hindi: "नमस्ते बच्चों",
+      native: translate("नमस्ते बच्चों", lang).native,
+      roman: translate("नमस्ते बच्चों", lang).roman,
+      timestamp: "Just now",
+    },
+  ]);
 
   const inputRef = useRef<TextInput>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Soundwave animation bars
   const barAnim1 = useRef(new Animated.Value(10)).current;
@@ -53,30 +70,30 @@ export function LiveDialogueScreen() {
     }
   }, [inputText, lang]);
 
-  // Soundwave animation when typing or voice input is active
+  // Soundwave animation when recording or typing is active
   useEffect(() => {
     let animLoop: Animated.CompositeAnimation | null = null;
-    if (isListening || inputText.trim().length > 0) {
+    if (isRecording || isProcessingAudio || inputText.trim().length > 0) {
       animLoop = Animated.loop(
         Animated.parallel([
           Animated.sequence([
-            Animated.timing(barAnim1, { toValue: 32, duration: 250, useNativeDriver: false }),
+            Animated.timing(barAnim1, { toValue: isRecording ? 48 : 30, duration: 250, useNativeDriver: false }),
             Animated.timing(barAnim1, { toValue: 8, duration: 250, useNativeDriver: false }),
           ]),
           Animated.sequence([
-            Animated.timing(barAnim2, { toValue: 44, duration: 200, useNativeDriver: false }),
+            Animated.timing(barAnim2, { toValue: isRecording ? 58 : 40, duration: 200, useNativeDriver: false }),
             Animated.timing(barAnim2, { toValue: 12, duration: 200, useNativeDriver: false }),
           ]),
           Animated.sequence([
-            Animated.timing(barAnim3, { toValue: 38, duration: 280, useNativeDriver: false }),
+            Animated.timing(barAnim3, { toValue: isRecording ? 52 : 34, duration: 280, useNativeDriver: false }),
             Animated.timing(barAnim3, { toValue: 14, duration: 280, useNativeDriver: false }),
           ]),
           Animated.sequence([
-            Animated.timing(barAnim4, { toValue: 48, duration: 220, useNativeDriver: false }),
+            Animated.timing(barAnim4, { toValue: isRecording ? 60 : 44, duration: 220, useNativeDriver: false }),
             Animated.timing(barAnim4, { toValue: 10, duration: 220, useNativeDriver: false }),
           ]),
           Animated.sequence([
-            Animated.timing(barAnim5, { toValue: 30, duration: 260, useNativeDriver: false }),
+            Animated.timing(barAnim5, { toValue: isRecording ? 44 : 28, duration: 260, useNativeDriver: false }),
             Animated.timing(barAnim5, { toValue: 8, duration: 260, useNativeDriver: false }),
           ]),
         ])
@@ -93,7 +110,16 @@ export function LiveDialogueScreen() {
     return () => {
       if (animLoop) animLoop.stop();
     };
-  }, [isListening, inputText]);
+  }, [isRecording, isProcessingAudio, inputText]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
 
   const handleTextChange = (text: string) => {
     setInputText(text);
@@ -110,33 +136,95 @@ export function LiveDialogueScreen() {
     logProgressEvent("speech", lang, res.tokens.length, text);
   };
 
-  const handleSpeakAudio = () => {
-    if (result && result.roman) {
-      speakNative(result.roman, meta.ttsLocale);
+  const handleSpeakAudio = (customText?: string) => {
+    const textToSpeak = customText || (result && result.roman);
+    if (textToSpeak) {
+      speakNative(textToSpeak, meta.ttsLocale);
 
-      // Add to session history only when teacher actively delivers/speaks the phrase
-      setHistory((prev) => [
-        {
-          hindi: inputText,
-          native: result.native,
-          roman: result.roman,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-        ...prev.filter((h) => h.hindi !== inputText).slice(0, 8),
-      ]);
+      // Add to session history
+      if (result) {
+        setHistory((prev) => [
+          {
+            hindi: inputText,
+            native: result.native,
+            roman: result.roman,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+          ...prev.filter((h) => h.hindi !== inputText).slice(0, 8),
+        ]);
+      }
     }
   };
 
-  const handleMicPress = () => {
-    setIsListening(true);
-    // Focus keyboard so user can use the native mic on Gboard / mobile keyboard
-    inputRef.current?.focus();
+  // Toggle Microphone recording with real hardware capture
+  const handleMicToggle = async () => {
+    if (isRecording) {
+      // Stop recording
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      setIsRecording(false);
+      setIsProcessingAudio(true);
+      setVoiceNotice("Audio recording captured! Finalizing translation…");
+
+      const res = await stopAudioRecording();
+      setIsProcessingAudio(false);
+
+      if (res.success && res.uri) {
+        setVoiceNotice(
+          `Voice captured (${Math.round((res.durationMillis || 1000) / 100) / 10}s)! Translating & speaking…`
+        );
+        // If current text exists, speak translation
+        if (result && result.roman) {
+          handleSpeakAudio();
+        }
+      } else if (res.error) {
+        setVoiceNotice(res.error);
+      }
+    } else {
+      // Start recording
+      setVoiceNotice(null);
+      const res = await startAudioRecording();
+      if (res.success) {
+        setIsRecording(true);
+        setRecordSeconds(0);
+        timerRef.current = setInterval(() => {
+          setRecordSeconds((sec) => sec + 1);
+        }, 1000);
+      } else {
+        setVoiceNotice(res.error || "Could not start microphone.");
+        // Open keyboard as fallback
+        inputRef.current?.focus();
+      }
+    }
   };
 
   const handleClear = () => {
     setInputText("");
     setResult(null);
-    setIsListening(false);
+    setVoiceNotice(null);
+  };
+
+  const handlePromptSelect = (prompt: string) => {
+    setInputText(prompt);
+    handleTextChange(prompt);
+    const res = translate(prompt, lang);
+    setResult(res);
+    setVoiceNotice(`Spoken phrase: "${prompt}"`);
+    // Immediately play the native audio pronunciation!
+    if (res && res.roman) {
+      speakNative(res.roman, meta.ttsLocale);
+      setHistory((prev) => [
+        {
+          hindi: prompt,
+          native: res.native,
+          roman: res.roman,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+        ...prev.filter((h) => h.hindi !== prompt).slice(0, 8),
+      ]);
+    }
   };
 
   const quickPrompts = [
@@ -149,6 +237,12 @@ export function LiveDialogueScreen() {
     "हाथ साफ करो",
     "सूरज निकला सुबह हुई",
   ];
+
+  const formatSeconds = (sec: number) => {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${mins < 10 ? "0" : ""}${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
 
   return (
     <ScrollView
@@ -171,7 +265,7 @@ export function LiveDialogueScreen() {
       </View>
 
       {/* Voice & Soundwave Equalizer Box */}
-      <View style={styles.micSection}>
+      <View style={[styles.micSection, isRecording && styles.micSectionRecording]}>
         <View style={styles.equalizerRow}>
           <Animated.View style={[styles.eqBar, { height: barAnim1 }]} />
           <Animated.View style={[styles.eqBar, { height: barAnim2 }]} />
@@ -180,20 +274,54 @@ export function LiveDialogueScreen() {
           <Animated.View style={[styles.eqBar, { height: barAnim5 }]} />
         </View>
 
+        {/* Big Mic Button with Active Recording States */}
         <TouchableOpacity
-          style={[styles.micBtn, isListening && styles.micBtnActive]}
-          onPress={handleMicPress}
+          style={[styles.micBtn, isRecording && styles.micBtnRecording]}
+          onPress={handleMicToggle}
           activeOpacity={0.85}
         >
-          <Mic size={36} color="#FFFFFF" />
+          {isRecording ? (
+            <Square size={30} color="#FFFFFF" fill="#FFFFFF" />
+          ) : (
+            <Mic size={36} color="#FFFFFF" />
+          )}
         </TouchableOpacity>
 
-        <Text style={styles.micStatusTitle}>
-          {isListening ? "Voice Input Ready" : "Tap Mic to Speak in Hindi"}
+        {/* Recording Status & Live Timer */}
+        <Text style={[styles.micStatusTitle, isRecording && styles.micStatusTitleActive]}>
+          {isRecording
+            ? `🔴 Recording Audio (${formatSeconds(recordSeconds)})`
+            : isProcessingAudio
+            ? "Processing Voice Recording…"
+            : "Tap Mic to Record / Stop"}
         </Text>
-        <Text style={styles.micHintText}>
-          💡 Mobile keyboard open hone par keyboard ke 🎙️ mic icon par bolen — live translate hoga!
+
+        <Text style={styles.micSubText}>
+          {isRecording
+            ? "Bolen Hindi me — Tap again to finish & translate"
+            : "Live audio input with instant acoustic playback"}
         </Text>
+
+        {voiceNotice && (
+          <View style={styles.noticeBox}>
+            <CheckCircle2 size={14} color={Colors.salGreen} />
+            <Text style={styles.noticeText}>{voiceNotice}</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Voice Help Banner */}
+      <View style={styles.tipCard}>
+        <Info size={16} color={Colors.deepIndigo} style={{ marginTop: 2 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.tipTitle}>2 Ways to Speak & Dictate:</Text>
+          <Text style={styles.tipText}>
+            1. <Text style={{ fontWeight: "700" }}>Live Mic Button:</Text> Tap the red mic above to record speech audio.
+          </Text>
+          <Text style={styles.tipText}>
+            2. <Text style={{ fontWeight: "700" }}>Keyboard Mic (🎙️):</Text> Tap inside the box below and tap your mobile keyboard's microphone icon for continuous speech dictation.
+          </Text>
+        </View>
       </View>
 
       {/* Real-time Voice & Text Input Box */}
@@ -216,12 +344,10 @@ export function LiveDialogueScreen() {
             style={styles.textInput}
             value={inputText}
             onChangeText={handleTextChange}
-            placeholder="Aap jo bolenge ya likhenge, wahi exact translate hoga..."
+            placeholder="Yahan type karein ya keyboard mic 🎙️ se bolein..."
             placeholderTextColor={Colors.textMuted}
             multiline
             numberOfLines={2}
-            onFocus={() => setIsListening(true)}
-            onBlur={() => setIsListening(false)}
           />
         </View>
       </View>
@@ -254,7 +380,7 @@ export function LiveDialogueScreen() {
           <View style={styles.outputActionRow}>
             <TouchableOpacity
               style={styles.speakBtn}
-              onPress={handleSpeakAudio}
+              onPress={() => handleSpeakAudio()}
               activeOpacity={0.8}
             >
               <Volume2 size={20} color="#FFFFFF" />
@@ -263,7 +389,7 @@ export function LiveDialogueScreen() {
 
             <TouchableOpacity
               style={styles.repeatBtn}
-              onPress={handleSpeakAudio}
+              onPress={() => handleSpeakAudio()}
               activeOpacity={0.8}
             >
               <RotateCcw size={16} color={Colors.deepIndigo} />
@@ -272,21 +398,23 @@ export function LiveDialogueScreen() {
         </View>
       ) : null}
 
-      {/* Quick Classroom Instruction Chips (Optional Presets) */}
-      <Text style={styles.quickTitle}>Quick Classroom Commands (Tap to Use):</Text>
+      {/* Quick Classroom Instruction Chips (Tap to Speak out loud!) */}
+      <View style={styles.quickHeaderRow}>
+        <Sparkles size={16} color={Colors.terracotta} />
+        <Text style={styles.quickTitle}>Quick Classroom Commands (Tap to Speak):</Text>
+      </View>
       <View style={styles.chipsRow}>
         {quickPrompts.map((p, idx) => (
           <TouchableOpacity
             key={idx}
-            style={styles.chip}
-            onPress={() => {
-              setInputText(p);
-              handleTextChange(p);
-              const r = translate(p, lang);
-              speakNative(r.roman, meta.ttsLocale);
-            }}
+            style={[styles.chip, inputText === p && styles.chipActive]}
+            onPress={() => handlePromptSelect(p)}
+            activeOpacity={0.75}
           >
-            <Text style={styles.chipText}>{p}</Text>
+            <Volume2 size={13} color={inputText === p ? "#FFFFFF" : Colors.terracotta} />
+            <Text style={[styles.chipText, inputText === p && styles.chipTextActive]}>
+              {p}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -307,7 +435,10 @@ export function LiveDialogueScreen() {
               <Text style={styles.historyNative}>{h.native}</Text>
               <View style={styles.historyBottomRow}>
                 <Text style={styles.historyRoman}>{h.roman}</Text>
-                <TouchableOpacity onPress={() => speakNative(h.roman, meta.ttsLocale)}>
+                <TouchableOpacity
+                  onPress={() => speakNative(h.roman, meta.ttsLocale)}
+                  style={styles.historyListenBtn}
+                >
                   <Volume2 size={15} color={Colors.terracotta} />
                 </TouchableOpacity>
               </View>
@@ -360,62 +491,100 @@ const styles = StyleSheet.create({
   },
   micSection: {
     backgroundColor: Colors.card,
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     alignItems: "center",
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
-    marginBottom: 16,
+  },
+  micSectionRecording: {
+    borderColor: Colors.destructive,
+    backgroundColor: "#FFF5F5",
   },
   equalizerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    height: 44,
-    marginBottom: 10,
+    gap: 5,
+    height: 48,
+    marginBottom: 12,
   },
   eqBar: {
     width: 6,
+    borderRadius: 3,
     backgroundColor: Colors.terracotta,
-    borderRadius: 4,
   },
   micBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     backgroundColor: Colors.terracotta,
     justifyContent: "center",
     alignItems: "center",
+    elevation: 4,
     shadowColor: Colors.terracotta,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowRadius: 8,
   },
-  micBtnActive: {
-    backgroundColor: Colors.salGreen,
-    transform: [{ scale: 1.05 }],
+  micBtnRecording: {
+    backgroundColor: Colors.destructive,
+    transform: [{ scale: 1.06 }],
   },
   micStatusTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "800",
     color: Colors.text,
-    marginTop: 10,
+    marginTop: 12,
   },
-  micHintText: {
+  micStatusTitleActive: {
+    color: Colors.destructive,
+  },
+  micSubText: {
     fontSize: 11,
     color: Colors.textMuted,
+    marginTop: 3,
     textAlign: "center",
-    marginTop: 4,
+  },
+  noticeBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+    paddingVertical: 6,
     paddingHorizontal: 12,
-    lineHeight: 15,
+    backgroundColor: Colors.salGreenLight,
+    borderRadius: 10,
+  },
+  noticeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.salGreen,
+  },
+  tipCard: {
+    flexDirection: "row",
+    gap: 10,
+    backgroundColor: Colors.deepIndigoLight,
+    padding: 12,
+    borderRadius: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "rgba(30, 41, 59, 0.08)",
+  },
+  tipTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Colors.deepIndigo,
+    marginBottom: 2,
+  },
+  tipText: {
+    fontSize: 11,
+    color: Colors.text,
+    lineHeight: 16,
+    marginTop: 2,
   },
   inputContainer: {
-    backgroundColor: Colors.card,
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
     marginBottom: 14,
   },
   inputLabelRow: {
@@ -433,28 +602,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: Colors.destructiveLight,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
   },
   clearText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
     color: Colors.destructive,
   },
   inputBox: {
-    backgroundColor: Colors.sand,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: Colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   textInput: {
     fontSize: 15,
     color: Colors.text,
-    fontWeight: "600",
     minHeight: 46,
-    textAlignVertical: "top",
+    textAlignVertical: "center",
   },
   outputCard: {
     backgroundColor: "#FFFFFF",
@@ -463,11 +629,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.terracottaLight,
     marginBottom: 18,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
     elevation: 2,
+    shadowColor: Colors.deepIndigo,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
   },
   outputTopRow: {
     flexDirection: "row",
@@ -475,13 +641,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   sourceHindiLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
     color: Colors.textMuted,
-    letterSpacing: 0.5,
   },
   nativeBadge: {
-    backgroundColor: Colors.deepIndigoLight,
+    backgroundColor: Colors.salGreenLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -489,10 +654,10 @@ const styles = StyleSheet.create({
   nativeBadgeText: {
     fontSize: 9,
     fontWeight: "800",
-    color: Colors.deepIndigo,
+    color: Colors.salGreen,
   },
   sourceHindiText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
     color: Colors.text,
     marginTop: 4,
@@ -503,35 +668,33 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   targetNativeLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
     color: Colors.terracotta,
-    letterSpacing: 0.5,
   },
   targetNativeText: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "900",
     color: Colors.deepIndigo,
-    marginTop: 4,
-    lineHeight: 34,
+    marginVertical: 4,
+    lineHeight: 32,
   },
   romanLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "700",
     color: Colors.textMuted,
-    marginTop: 10,
-    letterSpacing: 0.5,
+    marginTop: 8,
   },
   romanText: {
     fontSize: 14,
-    fontWeight: "600",
     fontStyle: "italic",
+    fontWeight: "600",
     color: Colors.text,
     marginTop: 2,
   },
   outputActionRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     marginTop: 16,
   },
   speakBtn: {
@@ -550,8 +713,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   repeatBtn: {
-    width: 46,
-    height: 46,
+    width: 44,
+    height: 44,
     borderRadius: 12,
     backgroundColor: Colors.sand,
     borderWidth: 1,
@@ -559,11 +722,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  quickHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
   quickTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "800",
     color: Colors.text,
-    marginBottom: 10,
   },
   chipsRow: {
     flexDirection: "row",
@@ -572,20 +740,31 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     backgroundColor: Colors.card,
-    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
   },
+  chipActive: {
+    backgroundColor: Colors.terracotta,
+    borderColor: Colors.terracotta,
+  },
   chipText: {
     fontSize: 12,
-    fontWeight: "700",
     color: Colors.text,
+    fontWeight: "600",
+  },
+  chipTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "800",
   },
   historySection: {
-    marginTop: 10,
+    marginTop: 6,
   },
   historyHeader: {
     flexDirection: "row",
@@ -594,7 +773,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   historyTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "800",
     color: Colors.textMuted,
   },
@@ -609,6 +788,7 @@ const styles = StyleSheet.create({
   historyTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
   },
   historyHindi: {
     fontSize: 13,
@@ -617,23 +797,25 @@ const styles = StyleSheet.create({
   },
   historyTime: {
     fontSize: 10,
-    color: Colors.textLight,
+    color: Colors.textMuted,
   },
   historyNative: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800",
     color: Colors.deepIndigo,
-    marginTop: 4,
+    marginVertical: 4,
   },
   historyBottomRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 4,
   },
   historyRoman: {
     fontSize: 11,
     fontStyle: "italic",
     color: Colors.textMuted,
+  },
+  historyListenBtn: {
+    padding: 4,
   },
 });
