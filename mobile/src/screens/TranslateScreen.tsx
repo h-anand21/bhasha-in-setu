@@ -7,15 +7,18 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import {
   Camera,
   Image as ImageIcon,
   Volume2,
   Sparkles,
-  Share2,
   CheckCircle,
   Copy,
+  AlertCircle,
+  X,
+  RotateCcw,
 } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Colors } from "../theme/colors";
@@ -23,6 +26,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { translate, type TranslationResult } from "../lib/translate";
 import { speakNative } from "../services/speech";
 import { logProgressEvent } from "../services/database";
+import { extractTextFromImage } from "../services/ocr";
 
 export function TranslateScreen() {
   const { lang, meta } = useLanguage();
@@ -32,6 +36,8 @@ export function TranslateScreen() {
   );
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isProcessingOcr, setIsProcessingOcr] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState<string | null>(null);
+  const [ocrError, setOcrError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const handleTranslate = (text: string) => {
@@ -42,6 +48,8 @@ export function TranslateScreen() {
   };
 
   const handleCameraCapture = async () => {
+    setOcrError(null);
+    setOcrStatus(null);
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       alert("Camera permission is required to scan blackboard notes.");
@@ -50,43 +58,66 @@ export function TranslateScreen() {
 
     const res = await ImagePicker.launchCameraAsync({
       mediaTypes: ["images"],
-      quality: 0.8,
+      quality: 0.85,
+      base64: true,
     });
 
     if (!res.canceled && res.assets && res.assets[0]) {
-      processScannedImage(res.assets[0].uri);
+      processScannedImage(res.assets[0].uri, res.assets[0].base64);
     }
   };
 
   const handleGalleryPicker = async () => {
+    setOcrError(null);
+    setOcrStatus(null);
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      quality: 0.8,
+      quality: 0.85,
+      base64: true,
     });
 
     if (!res.canceled && res.assets && res.assets[0]) {
-      processScannedImage(res.assets[0].uri);
+      processScannedImage(res.assets[0].uri, res.assets[0].base64);
     }
   };
 
-  const processScannedImage = (uri: string) => {
+  const processScannedImage = async (uri: string, base64?: string | null) => {
     setSelectedImage(uri);
     setIsProcessingOcr(true);
+    setOcrError(null);
+    setOcrStatus("Analyzing photo & extracting Devanagari text…");
 
-    // Simulate on-device OCR extraction from blackboard chalk note
-    setTimeout(() => {
+    try {
+      const res = await extractTextFromImage(base64, uri);
+
+      if (res.success && res.text) {
+        setInputText(res.text);
+        handleTranslate(res.text);
+        setOcrStatus(
+          `Extracted ${res.wordCount || res.text.split(/\s+/).length} words from photo!`
+        );
+      } else {
+        setOcrError(
+          res.error ||
+            "Could not read text from this image. Please take a clear, well-lit photo of the text or type below."
+        );
+        setOcrStatus(null);
+      }
+    } catch (err: any) {
+      setOcrError(
+        err?.message ||
+          "OCR extraction failed. Check your internet connection or enter the text manually."
+      );
+      setOcrStatus(null);
+    } finally {
       setIsProcessingOcr(false);
-      const blackboardSamples = [
-        "पाठशाला में गुरुजी पढ़ाते हैं और सब बच्चे सुनते हैं",
-        "सूरज चाँद नदी पहाड़ और हमारा सुंदर गाँव",
-        "एक दो तीन चार पाँच छह सात आठ नौ दस",
-        "हाथ धोना और साफ पानी पीना अच्छी आदत है",
-      ];
-      const extractedText =
-        blackboardSamples[Math.floor(Math.random() * blackboardSamples.length)]!;
-      setInputText(extractedText);
-      handleTranslate(extractedText);
-    }, 1200);
+    }
+  };
+
+  const clearImage = () => {
+    setSelectedImage(null);
+    setOcrStatus(null);
+    setOcrError(null);
   };
 
   const sampleLessons = [
@@ -114,6 +145,7 @@ export function TranslateScreen() {
             style={styles.scanBtn}
             onPress={handleCameraCapture}
             activeOpacity={0.8}
+            disabled={isProcessingOcr}
           >
             <Camera size={20} color="#FFFFFF" />
             <Text style={styles.scanBtnText}>Scan Blackboard Camera</Text>
@@ -123,6 +155,7 @@ export function TranslateScreen() {
             style={styles.galleryBtn}
             onPress={handleGalleryPicker}
             activeOpacity={0.8}
+            disabled={isProcessingOcr}
           >
             <ImageIcon size={20} color={Colors.deepIndigo} />
             <Text style={styles.galleryBtnText}>From Gallery</Text>
@@ -131,22 +164,54 @@ export function TranslateScreen() {
 
         {isProcessingOcr && (
           <View style={styles.ocrLoadingBox}>
-            <Sparkles size={18} color={Colors.terracotta} />
-            <Text style={styles.ocrLoadingText}>Processing Blackboard Vision OCR on-device…</Text>
+            <ActivityIndicator size="small" color={Colors.terracotta} />
+            <Text style={styles.ocrLoadingText}>
+              Processing Blackboard Vision OCR…
+            </Text>
+          </View>
+        )}
+
+        {ocrStatus && (
+          <View style={styles.ocrSuccessBox}>
+            <CheckCircle size={16} color={Colors.salGreen} />
+            <Text style={styles.ocrSuccessText}>{ocrStatus}</Text>
+          </View>
+        )}
+
+        {ocrError && (
+          <View style={styles.ocrErrorBox}>
+            <AlertCircle size={16} color={Colors.terracotta} />
+            <Text style={styles.ocrErrorText}>{ocrError}</Text>
           </View>
         )}
 
         {selectedImage && (
           <View style={styles.previewBox}>
-            <Image source={{ uri: selectedImage }} style={styles.previewImage} />
-            <Text style={styles.previewLabel}>Scanned Blackboard Photo</Text>
+            <View style={styles.previewImageContainer}>
+              <Image source={{ uri: selectedImage }} style={styles.previewImage} resizeMode="cover" />
+              <TouchableOpacity
+                style={styles.removeImageBtn}
+                onPress={clearImage}
+                activeOpacity={0.7}
+              >
+                <X size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.previewLabel}>Captured Textbook / Blackboard Photo</Text>
           </View>
         )}
       </View>
 
       {/* Input Box */}
       <View style={styles.inputCard}>
-        <Text style={styles.inputLabel}>ENTER OR EDIT LESSON TEXT (HINDI):</Text>
+        <View style={styles.inputHeaderRow}>
+          <Text style={styles.inputLabel}>ENTER OR EDIT LESSON TEXT (HINDI):</Text>
+          {inputText.length > 0 && (
+            <TouchableOpacity onPress={() => setInputText("")}>
+              <Text style={styles.clearInputText}>Clear</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <TextInput
           style={styles.inputArea}
           value={inputText}
@@ -313,19 +378,67 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.terracotta,
   },
+  ocrSuccessBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: Colors.salGreenLight,
+    borderRadius: 10,
+  },
+  ocrSuccessText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.salGreen,
+    flex: 1,
+  },
+  ocrErrorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: Colors.terracottaLight,
+    borderRadius: 10,
+  },
+  ocrErrorText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.terracotta,
+    flex: 1,
+  },
   previewBox: {
     marginTop: 12,
     alignItems: "center",
   },
+  previewImageContainer: {
+    width: "100%",
+    height: 160,
+    borderRadius: 12,
+    overflow: "hidden",
+    position: "relative",
+  },
   previewImage: {
     width: "100%",
-    height: 120,
-    borderRadius: 10,
+    height: "100%",
+  },
+  removeImageBtn: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
   },
   previewLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: Colors.textMuted,
-    marginTop: 4,
+    marginTop: 6,
+    fontWeight: "600",
   },
   inputCard: {
     backgroundColor: Colors.card,
@@ -335,11 +448,21 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
     marginBottom: 16,
   },
+  inputHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   inputLabel: {
     fontSize: 10,
     fontWeight: "800",
     color: Colors.textMuted,
-    marginBottom: 8,
+  },
+  clearInputText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.terracotta,
   },
   inputArea: {
     backgroundColor: Colors.sand,
