@@ -1,5 +1,5 @@
 import * as SQLite from "expo-sqlite";
-import { SAMPLE_LESSONS, FLASHCARD_SETS, type LangCode } from "../lib/lexicon";
+import { SAMPLE_LESSONS, type LangCode } from "../lib/lexicon";
 
 export type LessonRecord = {
   id: string;
@@ -41,46 +41,6 @@ export function getDatabase(): SQLite.SQLiteDatabase {
   }
   return dbInstance;
 }
-
-function initializeDatabase(db: SQLite.SQLiteDatabase) {
-  // Create tables
-  db.execSync(`
-    CREATE TABLE IF NOT EXISTS lessons (
-      id TEXT PRIMARY KEY,
-      lesson_number INTEGER NOT NULL,
-      title_hi TEXT NOT NULL,
-      title_en TEXT NOT NULL,
-      outcome_hi TEXT NOT NULL,
-      outcome_en TEXT NOT NULL,
-      lines_json TEXT NOT NULL,
-      category TEXT NOT NULL,
-      is_synced INTEGER DEFAULT 1,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS progress_events (
-      id TEXT PRIMARY KEY,
-      kind TEXT NOT NULL,
-      lang TEXT NOT NULL,
-      words_count INTEGER DEFAULT 1,
-      metadata TEXT,
-      timestamp INTEGER NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS saved_worksheets (
-      id TEXT PRIMARY KEY,
-      topic_id TEXT NOT NULL,
-      lesson_id TEXT NOT NULL,
-      lang TEXT NOT NULL,
-      worksheet_data TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-  `);
 
 // Seed default 16 NIPUN lessons and baseline classroom progress if empty
 function initializeDatabase(db: SQLite.SQLiteDatabase) {
@@ -169,15 +129,15 @@ function seedBaselineEvents(db: SQLite.SQLiteDatabase) {
   const now = Date.now();
   const DAY_MS = 86400000;
   const baseline = [
-    { kind: "speech", lang: "sat", words: 18, meta: "Class 2 Morning Oral Turn", offset: 0.1 * DAY_MS },
-    { kind: "ocr", lang: "sat", words: 12, meta: "Blackboard Santhali Rhyme", offset: 0.3 * DAY_MS },
-    { kind: "worksheet", lang: "sat", words: 24, meta: "Animals & Nature Flashcards", offset: 1.1 * DAY_MS },
-    { kind: "speech", lang: "hoc", words: 14, meta: "Class 1 Counting in Ho", offset: 1.8 * DAY_MS },
-    { kind: "ocr", lang: "unr", words: 10, meta: "Mundari School Objects", offset: 2.5 * DAY_MS },
-    { kind: "speech", lang: "sat", words: 22, meta: "Classroom Dialogue - Greetings", offset: 3.2 * DAY_MS },
-    { kind: "worksheet", lang: "hoc", words: 16, meta: "Warang Citi Script Tracing", offset: 4.1 * DAY_MS },
-    { kind: "speech", lang: "sat", words: 20, meta: "Storytelling - Jungle Animals", offset: 5.2 * DAY_MS },
-    { kind: "ocr", lang: "sat", words: 15, meta: "Board Vocabulary Exercise", offset: 6.0 * DAY_MS },
+    { kind: "speech", lang: "sat" as LangCode, words: 18, meta: "Class 2 Morning Oral Turn", offset: 0.1 * DAY_MS },
+    { kind: "ocr", lang: "sat" as LangCode, words: 12, meta: "Blackboard Santhali Rhyme", offset: 0.3 * DAY_MS },
+    { kind: "worksheet", lang: "sat" as LangCode, words: 24, meta: "Animals & Nature Flashcards", offset: 1.1 * DAY_MS },
+    { kind: "speech", lang: "hoc" as LangCode, words: 14, meta: "Class 1 Counting in Ho", offset: 1.8 * DAY_MS },
+    { kind: "ocr", lang: "unr" as LangCode, words: 10, meta: "Mundari School Objects", offset: 2.5 * DAY_MS },
+    { kind: "speech", lang: "sat" as LangCode, words: 22, meta: "Classroom Dialogue - Greetings", offset: 3.2 * DAY_MS },
+    { kind: "worksheet", lang: "hoc" as LangCode, words: 16, meta: "Warang Citi Script Tracing", offset: 4.1 * DAY_MS },
+    { kind: "speech", lang: "sat" as LangCode, words: 20, meta: "Storytelling - Jungle Animals", offset: 5.2 * DAY_MS },
+    { kind: "ocr", lang: "sat" as LangCode, words: 15, meta: "Board Vocabulary Exercise", offset: 6.0 * DAY_MS },
   ];
 
   for (const b of baseline) {
