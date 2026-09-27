@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   Animated,
-  ActivityIndicator,
 } from "react-native";
 import {
   Mic,
@@ -18,23 +17,106 @@ import {
   RotateCcw,
   X,
   Square,
-  Radio,
   CheckCircle2,
   Info,
 } from "lucide-react-native";
+import { WebView, type WebViewMessageEvent } from "react-native-webview";
+import { Audio } from "expo-av";
 import { Colors } from "../theme/colors";
 import { useLanguage } from "../context/LanguageContext";
 import { translate, type TranslationResult } from "../lib/translate";
 import { speakNative } from "../services/speech";
 import { logProgressEvent } from "../services/database";
-import { startAudioRecording, stopAudioRecording } from "../services/stt";
+
+const SPEECH_HTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:transparent;">
+  <script>
+    var recognition = null;
+    var isListening = false;
+
+    function getSpeechRecognizer() {
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) return null;
+      var r = new SR();
+      r.lang = 'hi-IN';
+      r.continuous = true;
+      r.interimResults = true;
+      r.maxAlternatives = 1;
+
+      r.onstart = function() {
+        isListening = true;
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SPEECH_START' }));
+      };
+
+      r.onresult = function(event) {
+        var transcript = '';
+        for (var i = event.resultIndex; i < event.results.length; ++i) {
+          transcript += event.results[i][0].transcript;
+        }
+        if (transcript.trim()) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'SPEECH_RESULT',
+            text: transcript.trim()
+          }));
+        }
+      };
+
+      r.onerror = function(event) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'SPEECH_ERROR',
+          error: event.error || 'speech_error'
+        }));
+      };
+
+      r.onend = function() {
+        isListening = false;
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SPEECH_END' }));
+      };
+
+      return r;
+    }
+
+    window.startSpeech = function() {
+      try {
+        if (!recognition) {
+          recognition = getSpeechRecognizer();
+        }
+        if (recognition) {
+          recognition.start();
+        } else {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'NOT_SUPPORTED' }));
+        }
+      } catch (err) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'SPEECH_ERROR',
+          error: err.message
+        }));
+      }
+    };
+
+    window.stopSpeech = function() {
+      try {
+        if (recognition) {
+          recognition.stop();
+        }
+      } catch (err) {}
+    };
+  </script>
+</body>
+</html>
+`;
 
 export function LiveDialogueScreen() {
   const { lang, meta } = useLanguage();
   const [inputText, setInputText] = useState("नमस्ते बच्चों");
-  const [isRecording, setIsRecording] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
-  const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
   const [result, setResult] = useState<TranslationResult | null>(() =>
     translate("नमस्ते बच्चों", lang)
@@ -51,6 +133,7 @@ export function LiveDialogueScreen() {
   ]);
 
   const inputRef = useRef<TextInput>(null);
+  const webViewRef = useRef<WebView>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Soundwave animation bars
@@ -70,30 +153,30 @@ export function LiveDialogueScreen() {
     }
   }, [inputText, lang]);
 
-  // Soundwave animation when recording or typing is active
+  // Soundwave animation when listening or typing is active
   useEffect(() => {
     let animLoop: Animated.CompositeAnimation | null = null;
-    if (isRecording || isProcessingAudio || inputText.trim().length > 0) {
+    if (isListening || inputText.trim().length > 0) {
       animLoop = Animated.loop(
         Animated.parallel([
           Animated.sequence([
-            Animated.timing(barAnim1, { toValue: isRecording ? 48 : 30, duration: 250, useNativeDriver: false }),
+            Animated.timing(barAnim1, { toValue: isListening ? 48 : 30, duration: 250, useNativeDriver: false }),
             Animated.timing(barAnim1, { toValue: 8, duration: 250, useNativeDriver: false }),
           ]),
           Animated.sequence([
-            Animated.timing(barAnim2, { toValue: isRecording ? 58 : 40, duration: 200, useNativeDriver: false }),
+            Animated.timing(barAnim2, { toValue: isListening ? 58 : 40, duration: 200, useNativeDriver: false }),
             Animated.timing(barAnim2, { toValue: 12, duration: 200, useNativeDriver: false }),
           ]),
           Animated.sequence([
-            Animated.timing(barAnim3, { toValue: isRecording ? 52 : 34, duration: 280, useNativeDriver: false }),
+            Animated.timing(barAnim3, { toValue: isListening ? 52 : 34, duration: 280, useNativeDriver: false }),
             Animated.timing(barAnim3, { toValue: 14, duration: 280, useNativeDriver: false }),
           ]),
           Animated.sequence([
-            Animated.timing(barAnim4, { toValue: isRecording ? 60 : 44, duration: 220, useNativeDriver: false }),
+            Animated.timing(barAnim4, { toValue: isListening ? 60 : 44, duration: 220, useNativeDriver: false }),
             Animated.timing(barAnim4, { toValue: 10, duration: 220, useNativeDriver: false }),
           ]),
           Animated.sequence([
-            Animated.timing(barAnim5, { toValue: isRecording ? 44 : 28, duration: 260, useNativeDriver: false }),
+            Animated.timing(barAnim5, { toValue: isListening ? 44 : 28, duration: 260, useNativeDriver: false }),
             Animated.timing(barAnim5, { toValue: 8, duration: 260, useNativeDriver: false }),
           ]),
         ])
@@ -110,7 +193,7 @@ export function LiveDialogueScreen() {
     return () => {
       if (animLoop) animLoop.stop();
     };
-  }, [isRecording, isProcessingAudio, inputText]);
+  }, [isListening, inputText]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -156,47 +239,68 @@ export function LiveDialogueScreen() {
     }
   };
 
-  // Toggle Microphone recording with real hardware capture
+  // Toggle Microphone recording & live transcription
   const handleMicToggle = async () => {
-    if (isRecording) {
-      // Stop recording
+    if (isListening) {
+      // Stop listening
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-      setIsRecording(false);
-      setIsProcessingAudio(true);
-      setVoiceNotice("Audio recording captured! Finalizing translation…");
+      setIsListening(false);
+      webViewRef.current?.injectJavaScript(`if (window.stopSpeech) { window.stopSpeech(); } true;`);
+      setVoiceNotice("Finished listening. Translating and speaking tribal audio…");
 
-      const res = await stopAudioRecording();
-      setIsProcessingAudio(false);
-
-      if (res.success && res.uri) {
-        setVoiceNotice(
-          `Voice captured (${Math.round((res.durationMillis || 1000) / 100) / 10}s)! Translating & speaking…`
-        );
-        // If current text exists, speak translation
-        if (result && result.roman) {
-          handleSpeakAudio();
-        }
-      } else if (res.error) {
-        setVoiceNotice(res.error);
+      if (result && result.roman) {
+        handleSpeakAudio();
       }
     } else {
-      // Start recording
-      setVoiceNotice(null);
-      const res = await startAudioRecording();
-      if (res.success) {
-        setIsRecording(true);
-        setRecordSeconds(0);
-        timerRef.current = setInterval(() => {
-          setRecordSeconds((sec) => sec + 1);
-        }, 1000);
-      } else {
-        setVoiceNotice(res.error || "Could not start microphone.");
-        // Open keyboard as fallback
+      // Start listening
+      setVoiceNotice("Requesting microphone access…");
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== "granted") {
+        setVoiceNotice("Microphone permission denied. Please allow microphone in settings.");
+        inputRef.current?.focus();
+        return;
+      }
+
+      setVoiceNotice("🔴 Listening live... Bolen Hindi me!");
+      setIsListening(true);
+      setRecordSeconds(0);
+      timerRef.current = setInterval(() => {
+        setRecordSeconds((sec) => sec + 1);
+      }, 1000);
+
+      webViewRef.current?.injectJavaScript(`if (window.startSpeech) { window.startSpeech(); } true;`);
+    }
+  };
+
+  // Handle messages from the speech recognition WebView
+  const onWebViewMessage = (event: WebViewMessageEvent) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === "SPEECH_RESULT") {
+        const text = data.text;
+        if (text) {
+          handleTextChange(text);
+          setVoiceNotice(`Spoken: "${text}"`);
+        }
+      } else if (data.type === "SPEECH_START") {
+        setIsListening(true);
+        setVoiceNotice("🔴 Listening live... Bolen Hindi me!");
+      } else if (data.type === "SPEECH_END") {
+        setIsListening(false);
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      } else if (data.type === "SPEECH_ERROR" || data.type === "NOT_SUPPORTED") {
+        console.warn("Speech recognition notice:", data.error || data.type);
+        setVoiceNotice("💡 Keyboard Mic active: Tap text box and press keyboard 🎙️ mic to speak!");
         inputRef.current?.focus();
       }
+    } catch (e) {
+      console.warn("Failed to parse speech webview message:", e);
     }
   };
 
@@ -212,6 +316,7 @@ export function LiveDialogueScreen() {
     const res = translate(prompt, lang);
     setResult(res);
     setVoiceNotice(`Spoken phrase: "${prompt}"`);
+
     // Immediately play the native audio pronunciation!
     if (res && res.roman) {
       speakNative(res.roman, meta.ttsLocale);
@@ -250,6 +355,21 @@ export function LiveDialogueScreen() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
+      {/* Hidden Speech Recognition Engine */}
+      <WebView
+        ref={webViewRef}
+        originWhitelist={["*"]}
+        source={{
+          html: SPEECH_HTML,
+          baseUrl: "https://bhashasetu.local",
+        }}
+        onMessage={onWebViewMessage}
+        mediaCapturePermissionGrantType="grant"
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        style={styles.hiddenWebView}
+      />
+
       {/* Top Header */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
@@ -265,7 +385,7 @@ export function LiveDialogueScreen() {
       </View>
 
       {/* Voice & Soundwave Equalizer Box */}
-      <View style={[styles.micSection, isRecording && styles.micSectionRecording]}>
+      <View style={[styles.micSection, isListening && styles.micSectionRecording]}>
         <View style={styles.equalizerRow}>
           <Animated.View style={[styles.eqBar, { height: barAnim1 }]} />
           <Animated.View style={[styles.eqBar, { height: barAnim2 }]} />
@@ -276,11 +396,11 @@ export function LiveDialogueScreen() {
 
         {/* Big Mic Button with Active Recording States */}
         <TouchableOpacity
-          style={[styles.micBtn, isRecording && styles.micBtnRecording]}
+          style={[styles.micBtn, isListening && styles.micBtnRecording]}
           onPress={handleMicToggle}
           activeOpacity={0.85}
         >
-          {isRecording ? (
+          {isListening ? (
             <Square size={30} color="#FFFFFF" fill="#FFFFFF" />
           ) : (
             <Mic size={36} color="#FFFFFF" />
@@ -288,18 +408,16 @@ export function LiveDialogueScreen() {
         </TouchableOpacity>
 
         {/* Recording Status & Live Timer */}
-        <Text style={[styles.micStatusTitle, isRecording && styles.micStatusTitleActive]}>
-          {isRecording
-            ? `🔴 Recording Audio (${formatSeconds(recordSeconds)})`
-            : isProcessingAudio
-            ? "Processing Voice Recording…"
-            : "Tap Mic to Record / Stop"}
+        <Text style={[styles.micStatusTitle, isListening && styles.micStatusTitleActive]}>
+          {isListening
+            ? `🔴 Listening... (${formatSeconds(recordSeconds)})`
+            : "Tap Mic to Speak in Hindi"}
         </Text>
 
         <Text style={styles.micSubText}>
-          {isRecording
-            ? "Bolen Hindi me — Tap again to finish & translate"
-            : "Live audio input with instant acoustic playback"}
+          {isListening
+            ? "Bolen Hindi me — real-time me screen par translate hoga!"
+            : "Live voice input with instant acoustic playback"}
         </Text>
 
         {voiceNotice && (
@@ -314,12 +432,12 @@ export function LiveDialogueScreen() {
       <View style={styles.tipCard}>
         <Info size={16} color={Colors.deepIndigo} style={{ marginTop: 2 }} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.tipTitle}>2 Ways to Speak & Dictate:</Text>
+          <Text style={styles.tipTitle}>2 Ways to Live Translate Voice:</Text>
           <Text style={styles.tipText}>
-            1. <Text style={{ fontWeight: "700" }}>Live Mic Button:</Text> Tap the red mic above to record speech audio.
+            1. <Text style={{ fontWeight: "700" }}>Live Mic Button:</Text> Tap the red mic button above and speak directly.
           </Text>
           <Text style={styles.tipText}>
-            2. <Text style={{ fontWeight: "700" }}>Keyboard Mic (🎙️):</Text> Tap inside the box below and tap your mobile keyboard's microphone icon for continuous speech dictation.
+            2. <Text style={{ fontWeight: "700" }}>Keyboard Mic (🎙️):</Text> Tap the box below and press your keyboard's microphone icon to dictate any sentence in Hindi.
           </Text>
         </View>
       </View>
@@ -454,6 +572,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.sand,
+  },
+  hiddenWebView: {
+    width: 1,
+    height: 1,
+    position: "absolute",
+    opacity: 0.01,
+    bottom: -10,
+    left: -10,
   },
   content: {
     padding: 16,
