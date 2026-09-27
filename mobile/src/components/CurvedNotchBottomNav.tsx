@@ -7,8 +7,8 @@ import {
   useWindowDimensions,
   Platform,
 } from "react-native";
-import Svg, { Path, Defs, LinearGradient, Stop, G, Line, Circle } from "react-native-svg";
-import { Home, BookOpen, Mic, BarChart2, User } from "lucide-react-native";
+import Svg, { Path, Defs, LinearGradient, Stop, Line, Rect, Circle } from "react-native-svg";
+import { Home, BookOpen, Mic, User } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export type NavTabType = "Home" | "Lessons" | "Live" | "Progress" | "Profile";
@@ -27,22 +27,22 @@ export const CurvedNotchBottomNav: React.FC<CurvedNotchBottomNavProps> = ({
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  // Elevated floating pill dimensions
+  // Floating navbar geometry
   const navMargin = 16;
   const navWidth = width - navMargin * 2;
-  const navHeight = 72;
+  const navHeight = 74;
   const cx = navWidth / 2;
 
   // Cutout notch dimensions
-  const notchRadius = 40; // radius of the concave notch
-  const notchFillet = 16; // smooth transition curve into horizontal edge
-  const notchDepth = 38; // depth of the scoop
-  const pillRadius = 32; // roundness of the entire navbar container
+  const notchRadius = 40;
+  const notchFillet = 16;
+  const notchDepth = 38;
+  const pillRadius = 34;
 
-  // Safe area bottom position (elevated higher as requested)
-  const bottomPosition = Math.max(insets.bottom + 12, 22);
+  // Elevation above bottom safe area
+  const bottomPosition = Math.max(insets.bottom + 10, 20);
 
-  // Exact mathematical Bezier path for the concave scooped notch navbar
+  // Exact mathematical Bezier path for scooped notch cutout
   const d = `
     M ${pillRadius},0
     L ${cx - notchRadius - notchFillet},0
@@ -60,6 +60,58 @@ export const CurvedNotchBottomNav: React.FC<CurvedNotchBottomNavProps> = ({
     Z
   `;
 
+  // Custom 3-bar Progress Icon matching the reference image
+  const renderProgressIcon = (isActive: boolean) => {
+    const barColor = isActive ? "#FFFFFF" : "#4A5568";
+    return (
+      <Svg width={20} height={20} viewBox="0 0 20 20">
+        <Rect x="2.5" y="8" width="3" height="9" rx="1.5" fill={barColor} />
+        <Rect x="8.5" y="3" width="3" height="14" rx="1.5" fill={barColor} />
+        <Rect x="14.5" y="6" width="3" height="11" rx="1.5" fill={barColor} />
+      </Svg>
+    );
+  };
+
+  // Helper to render tab item with exact reference active pill
+  const renderTabItem = (
+    tab: NavTabType,
+    label: string,
+    renderIcon: (isActive: boolean) => React.ReactNode,
+  ) => {
+    const isActive = activeTab === tab;
+    return (
+      <TouchableOpacity
+        style={styles.tabButton}
+        onPress={() => onTabPress(tab)}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+      >
+        <View style={styles.iconContainer}>
+          {isActive ? (
+            /* Active Orange Capsule with Gradient and Smooth Stadium Pill Shape */
+            <View style={styles.activeCapsule}>
+              <Svg width={58} height={36} style={StyleSheet.absoluteFill}>
+                <Defs>
+                  <LinearGradient id="orangeCapsuleGrad" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0%" stopColor="#FF7A1A" />
+                    <Stop offset="100%" stopColor="#FF4B00" />
+                  </LinearGradient>
+                </Defs>
+                <Rect x="0" y="0" width={58} height={36} rx={18} fill="url(#orangeCapsuleGrad)" />
+              </Svg>
+              <View style={styles.iconWrapper}>{renderIcon(true)}</View>
+            </View>
+          ) : (
+            /* Inactive Clean Icon */
+            <View style={styles.inactiveIconWrapper}>{renderIcon(false)}</View>
+          )}
+        </View>
+        <Text style={[styles.tabLabel, isActive && styles.activeTabLabel]}>{label}</Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View
       style={[
@@ -73,14 +125,18 @@ export const CurvedNotchBottomNav: React.FC<CurvedNotchBottomNavProps> = ({
       ]}
       pointerEvents="box-none"
     >
-      {/* SVG Background container with soft layered shadow */}
+      {/* SVG Background Container with Clouds and Soft Shadow */}
       <View style={[styles.svgContainer, { width: navWidth, height: navHeight }]}>
         <Svg width={navWidth} height={navHeight} viewBox={`0 0 ${navWidth} ${navHeight}`}>
           <Defs>
             <LinearGradient id="navbarBgGradient" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="1" />
-              <Stop offset="40%" stopColor="#FFFFFF" stopOpacity="1" />
-              <Stop offset="100%" stopColor="#F5F9FD" stopOpacity="0.98" />
+              <Stop offset="0%" stopColor="#FFFFFF" />
+              <Stop offset="50%" stopColor="#FAFCFF" />
+              <Stop offset="100%" stopColor="#F2F7FD" />
+            </LinearGradient>
+            <LinearGradient id="cloudGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor="#E3F0FD" stopOpacity="0.75" />
+              <Stop offset="100%" stopColor="#D2E6FB" stopOpacity="0.4" />
             </LinearGradient>
             <LinearGradient id="navbarBorderGradient" x1="0" y1="0" x2="1" y2="0">
               <Stop offset="0%" stopColor="#E2E8F0" stopOpacity="0.9" />
@@ -88,11 +144,25 @@ export const CurvedNotchBottomNav: React.FC<CurvedNotchBottomNavProps> = ({
               <Stop offset="100%" stopColor="#E2E8F0" stopOpacity="0.9" />
             </LinearGradient>
           </Defs>
+
+          {/* Base Navbar Shape */}
           <Path
             d={d}
             fill="url(#navbarBgGradient)"
             stroke="url(#navbarBorderGradient)"
             strokeWidth="1.2"
+          />
+
+          {/* Subtle Aesthetic Cloud Silhouettes (matching reference design) */}
+          <Path
+            d={`M 15,${navHeight - 10} Q 40,${navHeight - 34} 70,${navHeight - 20} Q 95,${navHeight - 40} 130,${navHeight - 24} L 140,${navHeight} L 15,${navHeight} Z`}
+            fill="url(#cloudGrad)"
+            opacity={0.5}
+          />
+          <Path
+            d={`M ${navWidth - 140},${navHeight - 22} Q ${navWidth - 110},${navHeight - 42} ${navWidth - 75},${navHeight - 24} Q ${navWidth - 45},${navHeight - 36} ${navWidth - 15},${navHeight - 12} L ${navWidth - 15},${navHeight} L ${navWidth - 140},${navHeight} Z`}
+            fill="url(#cloudGrad)"
+            opacity={0.5}
           />
         </Svg>
       </View>
@@ -101,43 +171,22 @@ export const CurvedNotchBottomNav: React.FC<CurvedNotchBottomNavProps> = ({
       <View style={[styles.buttonsRow, { height: navHeight }]}>
         {/* Left Tabs: Home & Lessons */}
         <View style={styles.tabHalf}>
-          <TouchableOpacity
-            style={styles.tabButton}
-            onPress={() => onTabPress("Home")}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Home"
-          >
-            <View style={[styles.iconBox, activeTab === "Home" && styles.activePillBox]}>
-              <Home
-                size={23}
-                color={activeTab === "Home" ? "#FFFFFF" : "#526071"}
-                strokeWidth={activeTab === "Home" ? 2.6 : 2}
-              />
-            </View>
-            <Text style={[styles.tabLabel, activeTab === "Home" && styles.activeTabLabel]}>
-              Home
-            </Text>
-          </TouchableOpacity>
+          {renderTabItem("Home", "Home", (isActive) => (
+            <Home
+              size={21}
+              color={isActive ? "#FFFFFF" : "#4A5568"}
+              fill={isActive ? "#FFFFFF" : "none"}
+              strokeWidth={isActive ? 2 : 2.2}
+            />
+          ))}
 
-          <TouchableOpacity
-            style={styles.tabButton}
-            onPress={() => onTabPress("Lessons")}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Lessons"
-          >
-            <View style={[styles.iconBox, activeTab === "Lessons" && styles.activePillBox]}>
-              <BookOpen
-                size={23}
-                color={activeTab === "Lessons" ? "#FFFFFF" : "#526071"}
-                strokeWidth={activeTab === "Lessons" ? 2.6 : 2}
-              />
-            </View>
-            <Text style={[styles.tabLabel, activeTab === "Lessons" && styles.activeTabLabel]}>
-              Lessons
-            </Text>
-          </TouchableOpacity>
+          {renderTabItem("Lessons", "Lessons", (isActive) => (
+            <BookOpen
+              size={21}
+              color={isActive ? "#FFFFFF" : "#4A5568"}
+              strokeWidth={isActive ? 2.6 : 2.2}
+            />
+          ))}
         </View>
 
         {/* Center Clearance Gap for Floating Mic */}
@@ -145,43 +194,15 @@ export const CurvedNotchBottomNav: React.FC<CurvedNotchBottomNavProps> = ({
 
         {/* Right Tabs: Progress & Profile */}
         <View style={styles.tabHalf}>
-          <TouchableOpacity
-            style={styles.tabButton}
-            onPress={() => onTabPress("Progress")}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Progress"
-          >
-            <View style={[styles.iconBox, activeTab === "Progress" && styles.activePillBox]}>
-              <BarChart2
-                size={23}
-                color={activeTab === "Progress" ? "#FFFFFF" : "#526071"}
-                strokeWidth={activeTab === "Progress" ? 2.6 : 2}
-              />
-            </View>
-            <Text style={[styles.tabLabel, activeTab === "Progress" && styles.activeTabLabel]}>
-              Progress
-            </Text>
-          </TouchableOpacity>
+          {renderTabItem("Progress", "Progress", (isActive) => renderProgressIcon(isActive))}
 
-          <TouchableOpacity
-            style={styles.tabButton}
-            onPress={() => onTabPress("Profile")}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Profile"
-          >
-            <View style={[styles.iconBox, activeTab === "Profile" && styles.activePillBox]}>
-              <User
-                size={23}
-                color={activeTab === "Profile" ? "#FFFFFF" : "#526071"}
-                strokeWidth={activeTab === "Profile" ? 2.6 : 2}
-              />
-            </View>
-            <Text style={[styles.tabLabel, activeTab === "Profile" && styles.activeTabLabel]}>
-              Profile
-            </Text>
-          </TouchableOpacity>
+          {renderTabItem("Profile", "Profile", (isActive) => (
+            <User
+              size={21}
+              color={isActive ? "#FFFFFF" : "#4A5568"}
+              strokeWidth={isActive ? 2.6 : 2.2}
+            />
+          ))}
         </View>
       </View>
 
@@ -191,7 +212,6 @@ export const CurvedNotchBottomNav: React.FC<CurvedNotchBottomNavProps> = ({
           /* Active / Listening State: Pulsing Concentric Soundwave Arcs */
           <View style={styles.listeningWaves} pointerEvents="none">
             <Svg width={110} height={80} viewBox="0 0 110 80">
-              {/* Left wave arcs */}
               <Path
                 d="M 24,25 Q 16,40 24,55"
                 fill="none"
@@ -208,7 +228,6 @@ export const CurvedNotchBottomNav: React.FC<CurvedNotchBottomNavProps> = ({
                 strokeLinecap="round"
                 opacity={0.5}
               />
-              {/* Right wave arcs */}
               <Path
                 d="M 86,25 Q 94,40 86,55"
                 fill="none"
@@ -289,13 +308,13 @@ const styles = StyleSheet.create({
     top: 0,
     ...Platform.select({
       ios: {
-        shadowColor: "#1E293B",
+        shadowColor: "#0F172A",
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.14,
-        shadowRadius: 16,
+        shadowRadius: 18,
       },
       android: {
-        elevation: 12,
+        elevation: 14,
       },
     }),
   },
@@ -313,38 +332,55 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   centerGap: {
-    width: 72,
+    width: 74,
   },
   tabButton: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 2,
-    minWidth: 56,
+    minWidth: 60,
+    paddingTop: 4,
   },
-  iconBox: {
+  iconContainer: {
     width: 58,
-    height: 32,
-    borderRadius: 16,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 2,
   },
-  activePillBox: {
-    backgroundColor: "#FF6422",
-    shadowColor: "#FF6422",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 5,
-    elevation: 4,
+  activeCapsule: {
+    width: 58,
+    height: 36,
+    borderRadius: 18,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#FF5722",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.38,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  iconWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inactiveIconWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: "600",
-    color: "#526071",
-    marginTop: 1,
+    color: "#4A5568",
+    marginTop: 2,
   },
   activeTabLabel: {
-    color: "#FF6422",
+    color: "#FF5E14",
     fontWeight: "800",
   },
   floatingMicWrapper: {
