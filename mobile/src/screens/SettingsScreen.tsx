@@ -189,6 +189,16 @@ export function SettingsScreen({ navigation }: any) {
           <Text style={styles.settingValue}>v1.0.0 (FLN Edition)</Text>
         </View>
         <View style={styles.divider} />
+        <TouchableOpacity
+          style={styles.settingRow}
+          onPress={() => navigation.navigate("Onboarding")}
+          activeOpacity={0.7}
+        >
+          <HelpCircle size={18} color={Colors.primaryForest} />
+          <Text style={styles.settingLabel}>Replay Onboarding Guide</Text>
+          <ChevronRight size={16} color={Colors.textMuted} />
+        </TouchableOpacity>
+        <View style={styles.divider} />
         <View style={styles.settingRow}>
           <HelpCircle size={18} color={Colors.primaryForest} />
           <Text style={styles.settingLabel}>Help & Documentation</Text>

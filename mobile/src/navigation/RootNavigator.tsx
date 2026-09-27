@@ -1,5 +1,5 @@
-import React from "react";
-import { View, StyleSheet } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, StyleSheet, ActivityIndicator } from "react-native";
 import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Colors } from "../theme/colors";
@@ -14,7 +14,9 @@ import { SettingsScreen } from "../screens/SettingsScreen";
 import { OfflineScreen } from "../screens/OfflineScreen";
 import { LanguageSelectionScreen } from "../screens/LanguageSelectionScreen";
 import { LanguageDetailsScreen } from "../screens/LanguageDetailsScreen";
+import { OnboardingScreen } from "../screens/OnboardingScreen";
 import { CurvedNotchBottomNav, NavTabType } from "../components/CurvedNotchBottomNav";
+import { getAppSetting } from "../services/database";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -56,13 +58,38 @@ function TabNavigator() {
 }
 
 export function RootNavigator() {
+  const [initialRoute, setInitialRoute] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const hasSeen = getAppSetting("has_seen_onboarding", "false");
+      if (hasSeen === "true") {
+        setInitialRoute("MainTabs");
+      } else {
+        setInitialRoute("Onboarding");
+      }
+    } catch {
+      setInitialRoute("Onboarding");
+    }
+  }, []);
+
+  if (!initialRoute) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: Colors.background }]}>
+        <ActivityIndicator size="large" color={Colors.primaryForest} />
+      </View>
+    );
+  }
+
   return (
     <Stack.Navigator
+      initialRouteName={initialRoute}
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: Colors.background },
       }}
     >
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="MainTabs" component={TabNavigator} />
       <Stack.Screen name="Translate" component={TranslateScreen} />
       <Stack.Screen name="Library" component={LibraryScreen} />
@@ -74,3 +101,11 @@ export function RootNavigator() {
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
