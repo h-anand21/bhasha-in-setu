@@ -31,7 +31,8 @@ export async function startAudioRecording(): Promise<{ success: boolean; error?:
       allowsRecordingIOS: true,
       playsInSilentModeIOS: true,
       staysActiveInBackground: false,
-      shouldDuckAndroid: true,
+      shouldDuckAndroid: false,
+      playThroughEarpieceAndroid: false,
     });
 
     // If previous recording was dangling, stop it
@@ -76,10 +77,13 @@ export async function stopAudioRecording(): Promise<{
     const uri = activeRecording.getURI() || undefined;
     activeRecording = null;
 
-    // Reset audio mode to playback
+    // Reset audio mode to playback through LOUDSPEAKER
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
       playsInSilentModeIOS: true,
+      playThroughEarpieceAndroid: false,
+      shouldDuckAndroid: false,
+      staysActiveInBackground: false,
     });
 
     return {
