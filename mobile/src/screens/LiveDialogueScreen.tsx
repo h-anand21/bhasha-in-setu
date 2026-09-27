@@ -339,435 +339,447 @@ export function LiveDialogueScreen() {
 
   return (
     <>
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.badgeRow}>
-          <Radio size={12} color={Colors.salGreen} />
-          <Text style={styles.badgeText}>3D ACOUSTIC CLASSROOM BRIDGE</Text>
-        </View>
-        <Text style={styles.title}>Live Classroom Dialogue</Text>
-        <Text style={styles.subtitle}>
-          Speak Hindi ➔ Live Native{" "}
-          <Text style={styles.targetLangHighlight}>
-            {meta.name} ({meta.nativeName})
-          </Text>{" "}
-          voice broadcast.
-        </Text>
-      </View>
-
-      {/* Target Language Switcher Bar */}
-      <View style={styles.langPickerCard}>
-        <View style={styles.langPickerHeader}>
-          <Text style={styles.sectionLabel}>TARGET TRIBAL LANGUAGE:</Text>
-          <TouchableOpacity style={styles.testSpeakerBtn} onPress={testSpeaker} activeOpacity={0.8}>
-            <Volume2 size={13} color={Colors.terracotta} />
-            <Text style={styles.testSpeakerText}>🔊 Test Sound</Text>
-          </TouchableOpacity>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.badgeRow}>
+            <Radio size={12} color={Colors.salGreen} />
+            <Text style={styles.badgeText}>3D ACOUSTIC CLASSROOM BRIDGE</Text>
+          </View>
+          <Text style={styles.title}>Live Classroom Dialogue</Text>
+          <Text style={styles.subtitle}>
+            Speak Hindi ➔ Live Native{" "}
+            <Text style={styles.targetLangHighlight}>
+              {meta.name} ({meta.nativeName})
+            </Text>{" "}
+            voice broadcast.
+          </Text>
         </View>
 
-        <View style={styles.langTabsRow}>
-          {languages.map((l) => {
-            const isSelected = lang === l.code;
-            return (
+        {/* Target Language Switcher Bar */}
+        <View style={styles.langPickerCard}>
+          <View style={styles.langPickerHeader}>
+            <Text style={styles.sectionLabel}>TARGET TRIBAL LANGUAGE:</Text>
+            <TouchableOpacity
+              style={styles.testSpeakerBtn}
+              onPress={testSpeaker}
+              activeOpacity={0.8}
+            >
+              <Volume2 size={13} color={Colors.terracotta} />
+              <Text style={styles.testSpeakerText}>🔊 Test Sound</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.langTabsRow}>
+            {languages.map((l) => {
+              const isSelected = lang === l.code;
+              return (
+                <TouchableOpacity
+                  key={l.code}
+                  style={[styles.langTab, isSelected && styles.langTabActive]}
+                  onPress={() => setLang(l.code)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.langTabInner}>
+                    <Text style={[styles.langName, isSelected && styles.langNameActive]}>
+                      {l.name}
+                    </Text>
+                    <Text style={[styles.langNative, isSelected && styles.langNativeActive]}>
+                      {l.nativeName} ({l.script})
+                    </Text>
+                  </View>
+                  {isSelected && <Check size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Controls Row */}
+          <View style={styles.controlsRow}>
+            {/* Teacher speaks Hindi / English Toggle */}
+            <View style={styles.inputLangToggle}>
               <TouchableOpacity
-                key={l.code}
-                style={[styles.langTab, isSelected && styles.langTabActive]}
-                onPress={() => setLang(l.code)}
+                style={[styles.inputLangBtn, inputLang === "hi-IN" && styles.inputLangBtnActive]}
+                onPress={() => setInputLang("hi-IN")}
+              >
+                <Text
+                  style={[
+                    styles.inputLangBtnText,
+                    inputLang === "hi-IN" && styles.inputLangBtnTextActive,
+                  ]}
+                >
+                  Hindi (हिंदी)
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.inputLangBtn, inputLang === "en-IN" && styles.inputLangBtnActive]}
+                onPress={() => setInputLang("en-IN")}
+              >
+                <Text
+                  style={[
+                    styles.inputLangBtnText,
+                    inputLang === "en-IN" && styles.inputLangBtnTextActive,
+                  ]}
+                >
+                  English
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Auto Broadcast Audio Toggle */}
+            <View style={styles.autoBroadcastBox}>
+              <Text style={styles.autoBroadcastLabel}>Auto-voice:</Text>
+              <Switch
+                value={autoSpeak}
+                onValueChange={setAutoSpeak}
+                trackColor={{ false: "#D1D5DB", true: Colors.salGreen }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* ================= THE MAIN MIC STAGE ================= */}
+        <View style={[styles.micStage, isRecording && styles.micStageRecording]}>
+          {/* Equalizer Soundwave Bars */}
+          <View style={styles.equalizerRow}>
+            <Animated.View
+              style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim1 }]}
+            />
+            <Animated.View
+              style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim2 }]}
+            />
+            <Animated.View
+              style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim3 }]}
+            />
+            <Animated.View
+              style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim4 }]}
+            />
+            <Animated.View
+              style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim5 }]}
+            />
+          </View>
+
+          {/* Big Mic Button with Pulsing Radar Ring */}
+          <View style={styles.micButtonWrapper}>
+            {isRecording && (
+              <Animated.View
+                style={[
+                  styles.pulseRing,
+                  {
+                    transform: [{ scale: pulseAnim }],
+                  },
+                ]}
+              />
+            )}
+
+            <TouchableOpacity
+              style={[styles.micButton, isRecording && styles.micButtonRecording]}
+              onPress={handleMicToggle}
+              activeOpacity={0.85}
+            >
+              {isTranscribing ? (
+                <ActivityIndicator size="large" color="#FFFFFF" />
+              ) : isRecording ? (
+                <Square size={36} color="#FFFFFF" fill="#FFFFFF" />
+              ) : (
+                <Mic size={42} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Status Title & Duration */}
+          <Text style={[styles.micStatusTitle, isRecording && styles.micStatusTitleRecording]}>
+            {isRecording
+              ? `🔴 सुन रहे हैं... (00:${recordSeconds < 10 ? "0" : ""}${recordSeconds}s) — रोकने के लिए दबाएं`
+              : "Mic दबाकर Hindi में बोलें (बोलने के लिए दबाएं)"}
+          </Text>
+
+          {/* Live interim text — shows what user is saying in real-time */}
+          {interimText ? (
+            <Text
+              style={[
+                styles.micSubtitle,
+                { color: Colors.terracotta, fontWeight: "700", fontSize: 15 },
+              ]}
+            >
+              🗣️ "{interimText}"
+            </Text>
+          ) : (
+            <Text style={styles.micSubtitle}>
+              {isRecording
+                ? "Hindi में बोलिए — real-time में text आएगा!"
+                : "Mic दबाकर बोलें या नीचे prompt पर tap करें — turant " +
+                  meta.name +
+                  " में translate होगा!"}
+            </Text>
+          )}
+
+          {/* Recorded Audio Action Box & Quick Match Selector */}
+          {lastRecordedUri && !isRecording && (
+            <View style={styles.recordedActionBox}>
+              <TouchableOpacity
+                style={styles.playRecordingBtn}
+                onPress={() => playRecordedAudio(lastRecordedUri)}
                 activeOpacity={0.8}
               >
-                <View style={styles.langTabInner}>
-                  <Text style={[styles.langName, isSelected && styles.langNameActive]}>
-                    {l.name}
-                  </Text>
-                  <Text style={[styles.langNative, isSelected && styles.langNativeActive]}>
-                    {l.nativeName} ({l.script})
+                <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+                <Text style={styles.playRecordingBtnText}>
+                  ▶ Play My Recorded Voice (अपनी आवाज़ सुनें)
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.quickMatchCard}>
+                <View style={styles.quickMatchHeader}>
+                  <Sparkles size={14} color={Colors.terracotta} />
+                  <Text style={styles.quickMatchTitle}>
+                    Translate to {meta.name} (जो आपने बोला, उसपर tap karein):
                   </Text>
                 </View>
-                {isSelected && <Check size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Controls Row */}
-        <View style={styles.controlsRow}>
-          {/* Teacher speaks Hindi / English Toggle */}
-          <View style={styles.inputLangToggle}>
-            <TouchableOpacity
-              style={[styles.inputLangBtn, inputLang === "hi-IN" && styles.inputLangBtnActive]}
-              onPress={() => setInputLang("hi-IN")}
-            >
-              <Text
-                style={[
-                  styles.inputLangBtnText,
-                  inputLang === "hi-IN" && styles.inputLangBtnTextActive,
-                ]}
-              >
-                Hindi (हिंदी)
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.inputLangBtn, inputLang === "en-IN" && styles.inputLangBtnActive]}
-              onPress={() => setInputLang("en-IN")}
-            >
-              <Text
-                style={[
-                  styles.inputLangBtnText,
-                  inputLang === "en-IN" && styles.inputLangBtnTextActive,
-                ]}
-              >
-                English
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Auto Broadcast Audio Toggle */}
-          <View style={styles.autoBroadcastBox}>
-            <Text style={styles.autoBroadcastLabel}>Auto-voice:</Text>
-            <Switch
-              value={autoSpeak}
-              onValueChange={setAutoSpeak}
-              trackColor={{ false: "#D1D5DB", true: Colors.salGreen }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-        </View>
-      </View>
-
-      {/* ================= THE MAIN MIC STAGE ================= */}
-      <View style={[styles.micStage, isRecording && styles.micStageRecording]}>
-        {/* Equalizer Soundwave Bars */}
-        <View style={styles.equalizerRow}>
-          <Animated.View
-            style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim1 }]}
-          />
-          <Animated.View
-            style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim2 }]}
-          />
-          <Animated.View
-            style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim3 }]}
-          />
-          <Animated.View
-            style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim4 }]}
-          />
-          <Animated.View
-            style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim5 }]}
-          />
-        </View>
-
-        {/* Big Mic Button with Pulsing Radar Ring */}
-        <View style={styles.micButtonWrapper}>
-          {isRecording && (
-            <Animated.View
-              style={[
-                styles.pulseRing,
-                {
-                  transform: [{ scale: pulseAnim }],
-                },
-              ]}
-            />
-          )}
-
-          <TouchableOpacity
-            style={[styles.micButton, isRecording && styles.micButtonRecording]}
-            onPress={handleMicToggle}
-            activeOpacity={0.85}
-          >
-            {isTranscribing ? (
-              <ActivityIndicator size="large" color="#FFFFFF" />
-            ) : isRecording ? (
-              <Square size={36} color="#FFFFFF" fill="#FFFFFF" />
-            ) : (
-              <Mic size={42} color="#FFFFFF" />
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Status Title & Duration */}
-        <Text style={[styles.micStatusTitle, isRecording && styles.micStatusTitleRecording]}>
-          {isRecording
-            ? `🔴 सुन रहे हैं... (00:${recordSeconds < 10 ? "0" : ""}${recordSeconds}s) — रोकने के लिए दबाएं`
-            : "Mic दबाकर Hindi में बोलें (बोलने के लिए दबाएं)"}
-        </Text>
-
-        {/* Live interim text — shows what user is saying in real-time */}
-        {interimText ? (
-          <Text style={[styles.micSubtitle, { color: Colors.terracotta, fontWeight: "700", fontSize: 15 }]}>
-            🗣️ "{interimText}"
-          </Text>
-        ) : (
-          <Text style={styles.micSubtitle}>
-            {isRecording
-              ? "Hindi में बोलिए — real-time में text आएगा!"
-              : "Mic दबाकर बोलें या नीचे prompt पर tap करें — turant " +
-                meta.name +
-                " में translate होगा!"}
-          </Text>
-        )}
-
-        {/* Recorded Audio Action Box & Quick Match Selector */}
-        {lastRecordedUri && !isRecording && (
-          <View style={styles.recordedActionBox}>
-            <TouchableOpacity
-              style={styles.playRecordingBtn}
-              onPress={() => playRecordedAudio(lastRecordedUri)}
-              activeOpacity={0.8}
-            >
-              <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
-              <Text style={styles.playRecordingBtnText}>
-                ▶ Play My Recorded Voice (अपनी आवाज़ सुनें)
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.quickMatchCard}>
-              <View style={styles.quickMatchHeader}>
-                <Sparkles size={14} color={Colors.terracotta} />
-                <Text style={styles.quickMatchTitle}>
-                  Translate to {meta.name} (जो आपने बोला, उसपर tap karein):
-                </Text>
-              </View>
-              <View style={styles.quickMatchChipsRow}>
-                {[
-                  "नमस्ते बच्चों",
-                  "किताब खोलो और पढ़ो",
-                  "सब बच्चे बैठ जाओ",
-                  "ध्यान से सुनो",
-                  "शाबाश बच्चों",
-                  "सूरज निकला सुबह हुई",
-                  "हाथ साफ करो",
-                ].map((phrase) => (
-                  <TouchableOpacity
-                    key={phrase}
-                    style={styles.quickMatchChip}
-                    onPress={() => {
-                      pushTurn(phrase, lastRecordedUri);
-                      setStatusMessage({
-                        text: `✅ Translated & Spoken: "${phrase}" in ${meta.name}`,
-                        type: "success",
-                      });
-                      setLastRecordedUri(null);
-                    }}
-                    activeOpacity={0.75}
-                  >
-                    <Volume2 size={13} color={Colors.terracotta} />
-                    <Text style={styles.quickMatchChipText}>{phrase}</Text>
-                  </TouchableOpacity>
-                ))}
+                <View style={styles.quickMatchChipsRow}>
+                  {[
+                    "नमस्ते बच्चों",
+                    "किताब खोलो और पढ़ो",
+                    "सब बच्चे बैठ जाओ",
+                    "ध्यान से सुनो",
+                    "शाबाश बच्चों",
+                    "सूरज निकला सुबह हुई",
+                    "हाथ साफ करो",
+                  ].map((phrase) => (
+                    <TouchableOpacity
+                      key={phrase}
+                      style={styles.quickMatchChip}
+                      onPress={() => {
+                        pushTurn(phrase, lastRecordedUri);
+                        setStatusMessage({
+                          text: `✅ Translated & Spoken: "${phrase}" in ${meta.name}`,
+                          type: "success",
+                        });
+                        setLastRecordedUri(null);
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <Volume2 size={13} color={Colors.terracotta} />
+                      <Text style={styles.quickMatchChipText}>{phrase}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
             </View>
-          </View>
-        )}
-      </View>
+          )}
+        </View>
 
-      {/* Status Feedback Banner */}
-      <View
-        style={[
-          styles.feedbackBox,
-          statusMessage.type === "recording" && styles.feedbackBoxRecording,
-          statusMessage.type === "success" && styles.feedbackBoxSuccess,
-          statusMessage.type === "error" && styles.feedbackBoxError,
-        ]}
-      >
-        {statusMessage.type === "error" ? (
-          <AlertCircle size={14} color={Colors.destructive} />
-        ) : statusMessage.type === "success" ? (
-          <Check size={14} color={Colors.salGreen} />
-        ) : statusMessage.type === "recording" ? (
-          <Radio size={14} color={Colors.destructive} />
-        ) : (
-          <Headphones size={14} color={Colors.deepIndigo} />
-        )}
-        <Text
+        {/* Status Feedback Banner */}
+        <View
           style={[
-            styles.feedbackText,
-            statusMessage.type === "recording" && styles.feedbackTextRecording,
-            statusMessage.type === "success" && styles.feedbackTextSuccess,
-            statusMessage.type === "error" && styles.feedbackTextError,
+            styles.feedbackBox,
+            statusMessage.type === "recording" && styles.feedbackBoxRecording,
+            statusMessage.type === "success" && styles.feedbackBoxSuccess,
+            statusMessage.type === "error" && styles.feedbackBoxError,
           ]}
         >
-          {statusMessage.text}
-        </Text>
-      </View>
-
-      {/* ================= 1-TAP INSTANT CLASSROOM COMMANDS ================= */}
-      <View style={styles.quickCard}>
-        <View style={styles.quickHeaderRow}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Sparkles size={16} color={Colors.terracotta} />
-            <Text style={styles.quickHeaderTitle}>
-              1-Tap Classroom Commands (Direct Translation):
-            </Text>
-          </View>
-          <Text style={styles.quickBadge}>⚡ ZERO DELAY</Text>
-        </View>
-        <Text style={styles.quickSubtext}>
-          Web app ki tarah kisi bhi command par tap karein — turant translate hoga aur phone speaker
-          se bolega!
-        </Text>
-
-        {/* Category Tabs */}
-        <View style={styles.categoryRow}>
-          <TouchableOpacity
-            style={[styles.catTab, activeCategory === "classroom" && styles.catTabActive]}
-            onPress={() => setActiveCategory("classroom")}
-          >
-            <Text
-              style={[styles.catTabText, activeCategory === "classroom" && styles.catTabTextActive]}
-            >
-              Classroom (कक्षा)
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.catTab, activeCategory === "numbers" && styles.catTabActive]}
-            onPress={() => setActiveCategory("numbers")}
-          >
-            <Text
-              style={[styles.catTabText, activeCategory === "numbers" && styles.catTabTextActive]}
-            >
-              Numbers (गिनती)
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.catTab, activeCategory === "daily" && styles.catTabActive]}
-            onPress={() => setActiveCategory("daily")}
-          >
-            <Text
-              style={[styles.catTabText, activeCategory === "daily" && styles.catTabTextActive]}
-            >
-              Daily & Habits (दैनिक)
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Prompt Chips */}
-        <View style={styles.chipsRow}>
-          {activePromptList.map((p) => (
-            <TouchableOpacity
-              key={p}
-              style={styles.chip}
-              onPress={() => {
-                pushTurn(p);
-                setStatusMessage({
-                  text: `✅ Spoken: "${p}" in ${meta.name}`,
-                  type: "success",
-                });
-              }}
-              activeOpacity={0.75}
-            >
-              <Volume2 size={14} color={Colors.terracotta} />
-              <Text style={styles.chipText}>{p}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* ================= DIRECT HINDI INPUT & KEYBOARD MIC BOX ================= */}
-      <View style={styles.inputCard}>
-        <View style={styles.inputHeaderRow}>
-          <Text style={styles.sectionLabel}>OR TYPE / GBOARD VOICE TYPING (HINDI):</Text>
-          {inputText.length > 0 && (
-            <TouchableOpacity onPress={() => setInputText("")}>
-              <Text style={styles.clearBtnText}>Clear</Text>
-            </TouchableOpacity>
+          {statusMessage.type === "error" ? (
+            <AlertCircle size={14} color={Colors.destructive} />
+          ) : statusMessage.type === "success" ? (
+            <Check size={14} color={Colors.salGreen} />
+          ) : statusMessage.type === "recording" ? (
+            <Radio size={14} color={Colors.destructive} />
+          ) : (
+            <Headphones size={14} color={Colors.deepIndigo} />
           )}
-        </View>
-        <View style={styles.inputBoxRow}>
-          <TextInput
-            ref={inputRef}
-            style={styles.textInput}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Yahan Hindi me likhein ya bole (jaise: नमस्ते बच्चों)..."
-            placeholderTextColor={Colors.textMuted}
-            returnKeyType="send"
-            onSubmitEditing={handleTextSubmit}
-          />
-          <TouchableOpacity
-            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
-            onPress={handleTextSubmit}
-            disabled={!inputText.trim()}
+          <Text
+            style={[
+              styles.feedbackText,
+              statusMessage.type === "recording" && styles.feedbackTextRecording,
+              statusMessage.type === "success" && styles.feedbackTextSuccess,
+              statusMessage.type === "error" && styles.feedbackTextError,
+            ]}
           >
-            <Send size={15} color="#FFFFFF" />
-            <Text style={styles.sendBtnText}>Translate & Speak</Text>
-          </TouchableOpacity>
+            {statusMessage.text}
+          </Text>
         </View>
-      </View>
 
-      {/* ================= CONVERSATION FEED / DIALOGUE STREAM ================= */}
-      <View style={styles.streamHeaderRow}>
-        <View style={styles.streamHeaderLeft}>
-          <Zap size={15} color={Colors.salGreen} />
-          <Text style={styles.streamTitle}>Live Dialogue Stream ({turns.length})</Text>
-        </View>
-        {turns.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearSessionBtn}
-            onPress={() => setTurns([])}
-            activeOpacity={0.7}
-          >
-            <Trash2 size={13} color={Colors.destructive} />
-            <Text style={styles.clearSessionText}>Clear Stream</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {turns.map((turn) => (
-        <View key={turn.id} style={styles.turnCard}>
-          <View style={styles.turnTopRow}>
-            <View style={styles.turnLangBadge}>
-              <Text style={styles.turnLangBadgeText}>
-                {meta.name.toUpperCase()} • {meta.script}
+        {/* ================= 1-TAP INSTANT CLASSROOM COMMANDS ================= */}
+        <View style={styles.quickCard}>
+          <View style={styles.quickHeaderRow}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Sparkles size={16} color={Colors.terracotta} />
+              <Text style={styles.quickHeaderTitle}>
+                1-Tap Classroom Commands (Direct Translation):
               </Text>
             </View>
-            <Text style={styles.turnTime}>{turn.timestamp}</Text>
+            <Text style={styles.quickBadge}>⚡ ZERO DELAY</Text>
           </View>
+          <Text style={styles.quickSubtext}>
+            Web app ki tarah kisi bhi command par tap karein — turant translate hoga aur phone
+            speaker se bolega!
+          </Text>
 
-          {/* Teacher Spoken Hindi */}
-          <Text style={styles.turnHindiText}>“{turn.hindi}”</Text>
-
-          {/* Tribal Translation */}
-          <View style={styles.turnNativeBox}>
-            <Text style={styles.turnNativeText}>{turn.native}</Text>
+          {/* Category Tabs */}
+          <View style={styles.categoryRow}>
             <TouchableOpacity
-              style={styles.turnListenBtn}
-              onPress={() => speakDialogue(turn.native, turn.roman, lang)}
-              activeOpacity={0.8}
+              style={[styles.catTab, activeCategory === "classroom" && styles.catTabActive]}
+              onPress={() => setActiveCategory("classroom")}
             >
-              <Volume2 size={18} color="#FFFFFF" />
+              <Text
+                style={[
+                  styles.catTabText,
+                  activeCategory === "classroom" && styles.catTabTextActive,
+                ]}
+              >
+                Classroom (कक्षा)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.catTab, activeCategory === "numbers" && styles.catTabActive]}
+              onPress={() => setActiveCategory("numbers")}
+            >
+              <Text
+                style={[styles.catTabText, activeCategory === "numbers" && styles.catTabTextActive]}
+              >
+                Numbers (गिनती)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.catTab, activeCategory === "daily" && styles.catTabActive]}
+              onPress={() => setActiveCategory("daily")}
+            >
+              <Text
+                style={[styles.catTabText, activeCategory === "daily" && styles.catTabTextActive]}
+              >
+                Daily & Habits (दैनिक)
+              </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Roman Pronunciation Guide */}
-          <Text style={styles.turnRomanText}>{turn.roman}</Text>
+          {/* Prompt Chips */}
+          <View style={styles.chipsRow}>
+            {activePromptList.map((p) => (
+              <TouchableOpacity
+                key={p}
+                style={styles.chip}
+                onPress={() => {
+                  pushTurn(p);
+                  setStatusMessage({
+                    text: `✅ Spoken: "${p}" in ${meta.name}`,
+                    type: "success",
+                  });
+                }}
+                activeOpacity={0.75}
+              >
+                <Volume2 size={14} color={Colors.terracotta} />
+                <Text style={styles.chipText}>{p}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
-          {/* Play Original Voice Audio if available */}
-          {turn.audioUri && (
+        {/* ================= DIRECT HINDI INPUT & KEYBOARD MIC BOX ================= */}
+        <View style={styles.inputCard}>
+          <View style={styles.inputHeaderRow}>
+            <Text style={styles.sectionLabel}>OR TYPE / GBOARD VOICE TYPING (HINDI):</Text>
+            {inputText.length > 0 && (
+              <TouchableOpacity onPress={() => setInputText("")}>
+                <Text style={styles.clearBtnText}>Clear</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.inputBoxRow}>
+            <TextInput
+              ref={inputRef}
+              style={styles.textInput}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Yahan Hindi me likhein ya bole (jaise: नमस्ते बच्चों)..."
+              placeholderTextColor={Colors.textMuted}
+              returnKeyType="send"
+              onSubmitEditing={handleTextSubmit}
+            />
             <TouchableOpacity
-              style={styles.turnAudioTag}
-              onPress={() => playRecordedAudio(turn.audioUri!)}
+              style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
+              onPress={handleTextSubmit}
+              disabled={!inputText.trim()}
+            >
+              <Send size={15} color="#FFFFFF" />
+              <Text style={styles.sendBtnText}>Translate & Speak</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ================= CONVERSATION FEED / DIALOGUE STREAM ================= */}
+        <View style={styles.streamHeaderRow}>
+          <View style={styles.streamHeaderLeft}>
+            <Zap size={15} color={Colors.salGreen} />
+            <Text style={styles.streamTitle}>Live Dialogue Stream ({turns.length})</Text>
+          </View>
+          {turns.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearSessionBtn}
+              onPress={() => setTurns([])}
               activeOpacity={0.7}
             >
-              <Play size={11} color={Colors.salGreen} fill={Colors.salGreen} />
-              <Text style={styles.turnAudioTagText}>Play Teacher's Voice Recording</Text>
+              <Trash2 size={13} color={Colors.destructive} />
+              <Text style={styles.clearSessionText}>Clear Stream</Text>
             </TouchableOpacity>
           )}
         </View>
-      ))}
-    </ScrollView>
-    {/* Hidden WebView for SpeechRecognition — same as web browser API */}
-    <WebViewSTT
-      ref={sttRef}
-      onResult={handleSTTResult}
-      onError={handleSTTError}
-      onListeningChange={handleSTTListeningChange}
-    />
+
+        {turns.map((turn) => (
+          <View key={turn.id} style={styles.turnCard}>
+            <View style={styles.turnTopRow}>
+              <View style={styles.turnLangBadge}>
+                <Text style={styles.turnLangBadgeText}>
+                  {meta.name.toUpperCase()} • {meta.script}
+                </Text>
+              </View>
+              <Text style={styles.turnTime}>{turn.timestamp}</Text>
+            </View>
+
+            {/* Teacher Spoken Hindi */}
+            <Text style={styles.turnHindiText}>“{turn.hindi}”</Text>
+
+            {/* Tribal Translation */}
+            <View style={styles.turnNativeBox}>
+              <Text style={styles.turnNativeText}>{turn.native}</Text>
+              <TouchableOpacity
+                style={styles.turnListenBtn}
+                onPress={() => speakDialogue(turn.native, turn.roman, lang)}
+                activeOpacity={0.8}
+              >
+                <Volume2 size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Roman Pronunciation Guide */}
+            <Text style={styles.turnRomanText}>{turn.roman}</Text>
+
+            {/* Play Original Voice Audio if available */}
+            {turn.audioUri && (
+              <TouchableOpacity
+                style={styles.turnAudioTag}
+                onPress={() => playRecordedAudio(turn.audioUri!)}
+                activeOpacity={0.7}
+              >
+                <Play size={11} color={Colors.salGreen} fill={Colors.salGreen} />
+                <Text style={styles.turnAudioTagText}>Play Teacher's Voice Recording</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ))}
+      </ScrollView>
+      {/* Hidden WebView for SpeechRecognition — same as web browser API */}
+      <WebViewSTT
+        ref={sttRef}
+        onResult={handleSTTResult}
+        onError={handleSTTError}
+        onListeningChange={handleSTTListeningChange}
+      />
     </>
   );
 }
