@@ -163,7 +163,7 @@ export function LiveDialogueScreen() {
       if (animLoop) animLoop.stop();
       if (pulseLoop) pulseLoop.stop();
     };
-  }, [isRecording]);
+  }, [barAnim1, barAnim2, barAnim3, barAnim4, barAnim5, isRecording, pulseAnim]);
 
   // Push turn to conversation feed and immediately speak out loud
   const pushTurn = (spokenPhrase: string, audioUri?: string) => {
@@ -281,14 +281,17 @@ export function LiveDialogueScreen() {
     }
   };
 
+  const handleMicToggleRef = useRef(handleMicToggle);
+  handleMicToggleRef.current = handleMicToggle;
+
   // Timer for active recording (auto stops at 15s)
   useEffect(() => {
-    let timer: any = null;
+    let timer: ReturnType<typeof setInterval> | null = null;
     if (isRecording) {
       timer = setInterval(() => {
         setRecordSeconds((prev) => {
           if (prev >= 15) {
-            handleMicToggle();
+            handleMicToggleRef.current();
             return prev;
           }
           return prev + 1;
