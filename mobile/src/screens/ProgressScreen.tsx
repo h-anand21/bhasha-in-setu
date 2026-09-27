@@ -56,8 +56,14 @@ export function ProgressScreen() {
   const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<ProgressStats | null>(null);
   const [recentEvents, setRecentEvents] = useState<ProgressEventRecord[]>([]);
-  const [weeklyBuckets, setWeeklyBuckets] = useState<{ label: string; count: number; date: string }[]>([]);
-  const [langCounts, setLangCounts] = useState<Record<LangCode, number>>({ sat: 0, hoc: 0, unr: 0 });
+  const [weeklyBuckets, setWeeklyBuckets] = useState<
+    { label: string; count: number; date: string }[]
+  >([]);
+  const [langCounts, setLangCounts] = useState<Record<LangCode, number>>({
+    sat: 0,
+    hoc: 0,
+    unr: 0,
+  });
   const [activeTab, setActiveTab] = useState<"overview" | "skills" | "usage" | "achievements">(
     "overview",
   );
@@ -121,7 +127,18 @@ export function ProgressScreen() {
 
   // Dynamically pull real top practiced words for the active language
   const topPracticedWords = useMemo(() => {
-    const candidateKeys = ["नमस्ते", "पानी", "किताब", "स्कूल", "दोस्त", "पेड़", "सूरज", "माँ", "अच्छा", "खेलो"];
+    const candidateKeys = [
+      "नमस्ते",
+      "पानी",
+      "किताब",
+      "स्कूल",
+      "दोस्त",
+      "पेड़",
+      "सूरज",
+      "माँ",
+      "अच्छा",
+      "खेलो",
+    ];
     const counts = [42, 38, 31, 28, 24, 19, 17, 15, 12, 10];
 
     return candidateKeys.slice(0, 6).map((k, idx) => {
@@ -142,7 +159,10 @@ export function ProgressScreen() {
   const flnPercent = useMemo(() => {
     if (!stats) return 86;
     const base = 75;
-    const bonus = Math.min(20, Math.floor((stats.totalWords / 200) * 15) + Math.floor((stats.speechSessions / 10) * 5));
+    const bonus = Math.min(
+      20,
+      Math.floor((stats.totalWords / 200) * 15) + Math.floor((stats.speechSessions / 10) * 5),
+    );
     return Math.min(98, base + bonus);
   }, [stats]);
 
@@ -158,10 +178,30 @@ export function ProgressScreen() {
     const vocab = Math.min(96, 68 + Math.floor(((stats?.totalWords || 50) / 150) * 22));
 
     return [
-      { skill: "Listening Comprehension", desc: "Mother tongue oral turns", percent: listening, color: Colors.warmOrange },
-      { skill: "Speaking & Pronunciation", desc: "Classroom bilingual dialogue", percent: speaking, color: Colors.terracotta },
-      { skill: "Reading & Script Tracing", desc: `${meta.script} & Devanagari recognition`, percent: reading, color: "#3B82F6" },
-      { skill: "Vocabulary Retention", desc: "Everyday school & nature keywords", percent: vocab, color: "#8B5CF6" },
+      {
+        skill: "Listening Comprehension",
+        desc: "Mother tongue oral turns",
+        percent: listening,
+        color: Colors.warmOrange,
+      },
+      {
+        skill: "Speaking & Pronunciation",
+        desc: "Classroom bilingual dialogue",
+        percent: speaking,
+        color: Colors.terracotta,
+      },
+      {
+        skill: "Reading & Script Tracing",
+        desc: `${meta.script} & Devanagari recognition`,
+        percent: reading,
+        color: "#3B82F6",
+      },
+      {
+        skill: "Vocabulary Retention",
+        desc: "Everyday school & nature keywords",
+        percent: vocab,
+        color: "#8B5CF6",
+      },
     ];
   }, [stats, meta.script]);
 
@@ -231,11 +271,26 @@ export function ProgressScreen() {
   const getKindDetails = (kind: string) => {
     switch (kind) {
       case "speech":
-        return { label: "Live Speech Dialogue", icon: Mic, color: Colors.terracotta, bg: "#FCEEEA" };
+        return {
+          label: "Live Speech Dialogue",
+          icon: Mic,
+          color: Colors.terracotta,
+          bg: "#FCEEEA",
+        };
       case "ocr":
-        return { label: "Blackboard OCR Scan", icon: Camera, color: Colors.primaryForest, bg: Colors.lightGreen };
+        return {
+          label: "Blackboard OCR Scan",
+          icon: Camera,
+          color: Colors.primaryForest,
+          bg: Colors.lightGreen,
+        };
       case "worksheet":
-        return { label: "Worksheet Generated", icon: FileSpreadsheet, color: Colors.ochre, bg: Colors.softYellow };
+        return {
+          label: "Worksheet Generated",
+          icon: FileSpreadsheet,
+          color: Colors.ochre,
+          bg: Colors.softYellow,
+        };
       default:
         return { label: "Lesson Practiced", icon: BookOpen, color: "#7C3AED", bg: "#F3E8FF" };
     }
@@ -260,11 +315,19 @@ export function ProgressScreen() {
       <View style={styles.topBarRow}>
         <StatusBadge label="OFFLINE FLN TELEMETRY" variant="sqlite" />
         <View style={styles.topActionsRow}>
-          <TouchableOpacity style={styles.iconActionBtn} onPress={handleSeedDemo} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.iconActionBtn}
+            onPress={handleSeedDemo}
+            activeOpacity={0.7}
+          >
             <RefreshCw size={13} color={Colors.primaryForest} />
             <Text style={styles.iconActionText}>Demo</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.iconActionBtn, { borderColor: "#FCA5A5" }]} onPress={handleReset} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={[styles.iconActionBtn, { borderColor: "#FCA5A5" }]}
+            onPress={handleReset}
+            activeOpacity={0.7}
+          >
             <Trash2 size={13} color="#DC2626" />
             <Text style={[styles.iconActionText, { color: "#DC2626" }]}>Reset</Text>
           </TouchableOpacity>
@@ -276,7 +339,8 @@ export function ProgressScreen() {
         <View style={styles.headerTextCol}>
           <Text style={styles.headerTitle}>Classroom FLN Progress</Text>
           <Text style={styles.headerSubtitle}>
-            Bilingual learning impact and foundational literacy metrics for {meta.name} ({meta.script}).
+            Bilingual learning impact and foundational literacy metrics for {meta.name} (
+            {meta.script}).
           </Text>
         </View>
         <View style={styles.headerIconBox}>
@@ -353,7 +417,8 @@ export function ProgressScreen() {
             </View>
 
             <Text style={styles.nipunExplanation}>
-              Children in your classroom are actively comprehending oral instruction and demonstrating dual-script bridging confidence in {meta.name}.
+              Children in your classroom are actively comprehending oral instruction and
+              demonstrating dual-script bridging confidence in {meta.name}.
             </Text>
           </View>
 
@@ -512,7 +577,8 @@ export function ProgressScreen() {
                 {weeklyBuckets.map((b, i) => {
                   const chartW = width - 64;
                   const barWidth = 24;
-                  const spacing = (chartW - weeklyBuckets.length * barWidth) / (weeklyBuckets.length + 1);
+                  const spacing =
+                    (chartW - weeklyBuckets.length * barWidth) / (weeklyBuckets.length + 1);
                   const x = spacing + i * (barWidth + spacing);
                   const maxH = 80;
                   const barH = Math.max(8, (b.count / maxWeeklyCount) * maxH);
@@ -521,14 +587,7 @@ export function ProgressScreen() {
 
                   return (
                     <React.Fragment key={i}>
-                      <Rect
-                        x={x}
-                        y={15}
-                        width={barWidth}
-                        height={80}
-                        rx={6}
-                        fill="#F3F0E6"
-                      />
+                      <Rect x={x} y={15} width={barWidth} height={80} rx={6} fill="#F3F0E6" />
                       <Rect
                         x={x}
                         y={y}
@@ -547,7 +606,12 @@ export function ProgressScreen() {
               {weeklyBuckets.map((d, i) => (
                 <View key={i} style={styles.dayCol}>
                   <Text style={styles.dayCountText}>{d.count > 0 ? d.count : "—"}</Text>
-                  <Text style={[styles.chartDayText, i === weeklyBuckets.length - 1 && styles.chartDayToday]}>
+                  <Text
+                    style={[
+                      styles.chartDayText,
+                      i === weeklyBuckets.length - 1 && styles.chartDayToday,
+                    ]}
+                  >
                     {d.label}
                   </Text>
                 </View>
@@ -603,7 +667,9 @@ export function ProgressScreen() {
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.activityName}>Blackboard OCR Scans</Text>
-                <Text style={styles.activitySub}>Dual-script blackboard translation & transliteration</Text>
+                <Text style={styles.activitySub}>
+                  Dual-script blackboard translation & transliteration
+                </Text>
               </View>
               <Text style={styles.activityCount}>5 scans</Text>
             </View>
@@ -628,7 +694,8 @@ export function ProgressScreen() {
             {recentEvents.length === 0 ? (
               <View style={styles.emptyRecentCard}>
                 <Text style={styles.emptyRecentText}>
-                  No activities recorded yet. Use Live Dialogue, Translate, or Worksheets to start tracking.
+                  No activities recorded yet. Use Live Dialogue, Translate, or Worksheets to start
+                  tracking.
                 </Text>
               </View>
             ) : (
@@ -688,7 +755,12 @@ export function ProgressScreen() {
                 <Text style={styles.achievementTitle}>{b.title}</Text>
                 <Text style={styles.achievementDesc}>{b.desc}</Text>
                 <View style={styles.progressTrackerRow}>
-                  <Text style={[styles.progressTrackerText, b.unlocked && { color: "#166534", fontWeight: "800" }]}>
+                  <Text
+                    style={[
+                      styles.progressTrackerText,
+                      b.unlocked && { color: "#166534", fontWeight: "800" },
+                    ]}
+                  >
                     {b.progress}
                   </Text>
                 </View>
@@ -700,7 +772,8 @@ export function ProgressScreen() {
           <View style={styles.impactCard}>
             <Heart size={20} color={Colors.terracotta} />
             <Text style={styles.impactQuote}>
-              "When children are welcomed in their tribal mother tongue, their curiosity ignites and foundational learning begins."
+              "When children are welcomed in their tribal mother tongue, their curiosity ignites and
+              foundational learning begins."
             </Text>
             <Text style={styles.impactAuthor}>— NIPUN Bharat Mission Guidelines</Text>
           </View>

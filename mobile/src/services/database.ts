@@ -90,7 +90,9 @@ function initializeDatabase(db: SQLite.SQLiteDatabase) {
   }
 
   // Seed baseline progress events if empty
-  const evtCount = db.getFirstSync<{ count: number }>("SELECT COUNT(*) as count FROM progress_events");
+  const evtCount = db.getFirstSync<{ count: number }>(
+    "SELECT COUNT(*) as count FROM progress_events",
+  );
   if (!evtCount || evtCount.count === 0) {
     seedBaselineEvents(db);
   }
@@ -129,15 +131,69 @@ function seedBaselineEvents(db: SQLite.SQLiteDatabase) {
   const now = Date.now();
   const DAY_MS = 86400000;
   const baseline = [
-    { kind: "speech", lang: "sat" as LangCode, words: 18, meta: "Class 2 Morning Oral Turn", offset: 0.1 * DAY_MS },
-    { kind: "ocr", lang: "sat" as LangCode, words: 12, meta: "Blackboard Santhali Rhyme", offset: 0.3 * DAY_MS },
-    { kind: "worksheet", lang: "sat" as LangCode, words: 24, meta: "Animals & Nature Flashcards", offset: 1.1 * DAY_MS },
-    { kind: "speech", lang: "hoc" as LangCode, words: 14, meta: "Class 1 Counting in Ho", offset: 1.8 * DAY_MS },
-    { kind: "ocr", lang: "unr" as LangCode, words: 10, meta: "Mundari School Objects", offset: 2.5 * DAY_MS },
-    { kind: "speech", lang: "sat" as LangCode, words: 22, meta: "Classroom Dialogue - Greetings", offset: 3.2 * DAY_MS },
-    { kind: "worksheet", lang: "hoc" as LangCode, words: 16, meta: "Warang Citi Script Tracing", offset: 4.1 * DAY_MS },
-    { kind: "speech", lang: "sat" as LangCode, words: 20, meta: "Storytelling - Jungle Animals", offset: 5.2 * DAY_MS },
-    { kind: "ocr", lang: "sat" as LangCode, words: 15, meta: "Board Vocabulary Exercise", offset: 6.0 * DAY_MS },
+    {
+      kind: "speech",
+      lang: "sat" as LangCode,
+      words: 18,
+      meta: "Class 2 Morning Oral Turn",
+      offset: 0.1 * DAY_MS,
+    },
+    {
+      kind: "ocr",
+      lang: "sat" as LangCode,
+      words: 12,
+      meta: "Blackboard Santhali Rhyme",
+      offset: 0.3 * DAY_MS,
+    },
+    {
+      kind: "worksheet",
+      lang: "sat" as LangCode,
+      words: 24,
+      meta: "Animals & Nature Flashcards",
+      offset: 1.1 * DAY_MS,
+    },
+    {
+      kind: "speech",
+      lang: "hoc" as LangCode,
+      words: 14,
+      meta: "Class 1 Counting in Ho",
+      offset: 1.8 * DAY_MS,
+    },
+    {
+      kind: "ocr",
+      lang: "unr" as LangCode,
+      words: 10,
+      meta: "Mundari School Objects",
+      offset: 2.5 * DAY_MS,
+    },
+    {
+      kind: "speech",
+      lang: "sat" as LangCode,
+      words: 22,
+      meta: "Classroom Dialogue - Greetings",
+      offset: 3.2 * DAY_MS,
+    },
+    {
+      kind: "worksheet",
+      lang: "hoc" as LangCode,
+      words: 16,
+      meta: "Warang Citi Script Tracing",
+      offset: 4.1 * DAY_MS,
+    },
+    {
+      kind: "speech",
+      lang: "sat" as LangCode,
+      words: 20,
+      meta: "Storytelling - Jungle Animals",
+      offset: 5.2 * DAY_MS,
+    },
+    {
+      kind: "ocr",
+      lang: "sat" as LangCode,
+      words: 15,
+      meta: "Board Vocabulary Exercise",
+      offset: 6.0 * DAY_MS,
+    },
   ];
 
   for (const b of baseline) {
