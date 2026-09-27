@@ -173,6 +173,11 @@ export function LiveDialogueScreen() {
     const res = translate(spokenPhrase.trim(), currentLangCode);
     const ms = Math.max(1, Date.now() - t0);
 
+    // 1. Immediately play speech audio through phone speaker FIRST (0ms delay)!
+    if (autoSpeakRef.current) {
+      speakDialogue(res.native, res.roman, currentLangCode);
+    }
+
     const newTurn: Turn = {
       id: Date.now() + Math.random(),
       hindi: spokenPhrase.trim(),
@@ -192,13 +197,14 @@ export function LiveDialogueScreen() {
       ...prev.filter((t) => t.hindi !== spokenPhrase.trim()).slice(0, 20),
     ]);
 
-    // Save event in database
-    logProgressEvent("speech", currentLangCode, res.tokens.length, spokenPhrase.trim());
-
-    // Immediately play speech audio through phone speaker!
-    if (autoSpeakRef.current) {
-      speakDialogue(res.native, res.roman, currentLangCode);
-    }
+    // Defer database write so it never interferes with speech
+    setTimeout(() => {
+      try {
+        logProgressEvent("speech", currentLangCode, res.tokens.length, spokenPhrase.trim());
+      } catch (e) {
+        console.warn("logProgressEvent error:", e);
+      }
+    }, 50);
   };
 
   // Toggle Live Microphone Speaking

@@ -1,4 +1,5 @@
 import { Audio } from "expo-av";
+import { resetLoudspeakerState, ensureLoudspeaker } from "./speech";
 
 export interface AudioRecordingState {
   isRecording: boolean;
@@ -14,16 +15,50 @@ export interface STTResult {
 
 let activeRecording: Audio.Recording | null = null;
 
+// Lightweight speech recording options: 16kHz mono AAC (10x smaller file size for instant upload)
+const fastSpeechRecordingOptions: Audio.RecordingOptions = {
+  isMeteringEnabled: false,
+  android: {
+    extension: ".m4a",
+    outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+    audioEncoder: Audio.AndroidAudioEncoder.AAC,
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    bitRate: 32000,
+  },
+  ios: {
+    extension: ".m4a",
+    outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+    audioQuality: Audio.IOSAudioQuality.LOW,
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    bitRate: 32000,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+  web: {
+    mimeType: "audio/webm",
+    bitsPerSecond: 32000,
+  },
+};
+
 /**
- * Requests microphone permission and starts high-quality audio recording.
+ * Requests microphone permission and starts fast speech-optimized audio recording.
  */
-export async function startAudioRecording(): Promise<{ success: boolean; error?: string }> {
+export async function startAudioRecording(): Promise<{
+  success: boolean;
+  error?: string;
+}> {
   try {
+    resetLoudspeakerState();
+
     const perm = await Audio.requestPermissionsAsync();
     if (!perm.granted) {
       return {
         success: false,
-        error: "Microphone permission was denied. Please allow microphone access in device settings.",
+        error:
+          "Microphone permission was denied. Please allow microphone access in device settings.",
       };
     }
 
@@ -39,21 +74,22 @@ export async function startAudioRecording(): Promise<{ success: boolean; error?:
     if (activeRecording) {
       try {
         await activeRecording.stopAndUnloadAsync();
-      } catch {}
+      } catch (err) {
+        console.warn("Dangling recording cleanup error:", err);
+      }
       activeRecording = null;
     }
 
-    const { recording } = await Audio.Recording.createAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY
-    );
+    const { recording } = await Audio.Recording.createAsync(fastSpeechRecordingOptions);
 
     activeRecording = recording;
     return { success: true };
-  } catch (err: any) {
-    console.warn("Failed to start audio recording:", err);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Could not initialize device microphone.";
+    console.warn("Failed to start audio recording:", errorMsg);
     return {
       success: false,
-      error: err?.message || "Could not initialize device microphone.",
+      error: errorMsg,
     };
   }
 }
@@ -77,26 +113,21 @@ export async function stopAudioRecording(): Promise<{
     const uri = activeRecording.getURI() || undefined;
     activeRecording = null;
 
-    // Reset audio mode to playback through LOUDSPEAKER
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: true,
-      playThroughEarpieceAndroid: false,
-      shouldDuckAndroid: false,
-      staysActiveInBackground: false,
-    });
+    // Immediately restore audio mode to playback through LOUDSPEAKER so speech starts with zero delay
+    await ensureLoudspeaker();
 
     return {
       success: true,
       uri,
       durationMillis: status.durationMillis,
     };
-  } catch (err: any) {
-    console.warn("Failed to stop recording:", err);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Failed to finalize audio recording.";
+    console.warn("Failed to stop recording:", errorMsg);
     activeRecording = null;
     return {
       success: false,
-      error: err?.message || "Failed to finalize audio recording.",
+      error: errorMsg,
     };
   }
 }
@@ -108,14 +139,15 @@ export async function cancelAudioRecording(): Promise<void> {
   if (activeRecording) {
     try {
       await activeRecording.stopAndUnloadAsync();
-    } catch {}
+    } catch (err) {
+      console.warn("Cancel recording error:", err);
+    }
     activeRecording = null;
   }
 }
 
 /**
- * Transcribes captured audio using Whisper AI.
- * Uploads audio file, runs transcription, and extracts recognized Hindi text.
+ * Transcribes captured audio using Whisper AI with fast timeout.
  */
 export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
   if (!fileUri) {
@@ -125,7 +157,7 @@ export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
   try {
     const filename = fileUri.split("/").pop() || "recording.m4a";
     const formData = new FormData();
-    // @ts-ignore - React Native FormData accepts uri object
+    // @ts-expect-error - React Native FormData accepts uri object
     formData.append("files", {
       uri: fileUri,
       name: filename,
@@ -133,7 +165,7 @@ export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
     });
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 4500);
 
     // 1. Upload audio to Gradio space
     const uploadRes = await fetch("https://openai-whisper.hf.space/gradio_api/upload", {
@@ -185,7 +217,7 @@ export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
     // 3. Retrieve transcription result
     const resultRes = await fetch(
       `https://openai-whisper.hf.space/gradio_api/call/predict/${event_id}`,
-      { signal: controller.signal }
+      { signal: controller.signal },
     );
     clearTimeout(timeout);
     const sseText = await resultRes.text();
@@ -202,19 +234,23 @@ export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
               return { success: true, text: cleanText };
             }
           }
-        } catch {}
+        } catch (jsonErr) {
+          console.warn("STT JSON parse line error:", jsonErr);
+        }
       }
     }
 
     return {
       success: false,
-      error: "Could not detect clear speech in the audio. Please try speaking closer to the mic.",
+      error: "Could not detect clear speech in the audio.",
     };
-  } catch (err: any) {
-    console.warn("STT transcription error:", err);
+  } catch (err: unknown) {
+    const errorMsg =
+      err instanceof Error ? err.message : "Speech-to-text service is currently unavailable.";
+    console.warn("STT transcription error:", errorMsg);
     return {
       success: false,
-      error: err?.message || "Speech-to-text service is currently unavailable.",
+      error: errorMsg,
     };
   }
 }
