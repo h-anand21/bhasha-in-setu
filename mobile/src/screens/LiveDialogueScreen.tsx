@@ -70,7 +70,7 @@ export function LiveDialogueScreen() {
     text: string;
     type: "info" | "success" | "error" | "recording";
   }>({
-    text: "Mic dabakar bolein ya kisi bhi command par tap karein — turant translate hoga!",
+    text: "Tap the mic to speak or tap any command below to translate instantly!",
     type: "info",
   });
 
@@ -217,7 +217,7 @@ export function LiveDialogueScreen() {
       setInterimText("");
       pushTurn(text.trim());
       setStatusMessage({
-        text: `✅ आवाज़ पहचानी: "${text.trim()}"`,
+        text: `✅ Voice Recognized: "${text.trim()}"`,
         type: "success",
       });
     } else {
@@ -229,7 +229,7 @@ export function LiveDialogueScreen() {
   const handleSTTError = useCallback((error: string) => {
     if (error === "no-speech") {
       setStatusMessage({
-        text: "कोई आवाज़ नहीं आई। फिर से बोलें या नीचे phrase चुनें!",
+        text: "No speech detected. Please try again or select a phrase below!",
         type: "info",
       });
     } else {
@@ -252,7 +252,7 @@ export function LiveDialogueScreen() {
     if (!isRecording) {
       // START LISTENING — same as web's getRecognizer("hi-IN").start()
       setStatusMessage({
-        text: "🎙️ सुन रहे हैं... Hindi में बोलिए! (बोलते रहिए...)",
+        text: "🎙️ Listening... Speak in Hindi now!",
         type: "recording",
       });
       setRecordSeconds(0);
@@ -412,7 +412,7 @@ export function LiveDialogueScreen() {
                     inputLang === "hi-IN" && styles.inputLangBtnTextActive,
                   ]}
                 >
-                  Hindi (हिंदी)
+                  Hindi
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -495,8 +495,8 @@ export function LiveDialogueScreen() {
           {/* Status Title & Duration */}
           <Text style={[styles.micStatusTitle, isRecording && styles.micStatusTitleRecording]}>
             {isRecording
-              ? `🔴 सुन रहे हैं... (00:${recordSeconds < 10 ? "0" : ""}${recordSeconds}s) — रोकने के लिए दबाएं`
-              : "Mic दबाकर Hindi में बोलें (बोलने के लिए दबाएं)"}
+              ? `🔴 Listening... (00:${recordSeconds < 10 ? "0" : ""}${recordSeconds}s) — Tap to Stop`
+              : "Tap Mic to Speak in Hindi"}
           </Text>
 
           {/* Live interim text — shows what user is saying in real-time */}
@@ -512,10 +512,10 @@ export function LiveDialogueScreen() {
           ) : (
             <Text style={styles.micSubtitle}>
               {isRecording
-                ? "Hindi में बोलिए — real-time में text आएगा!"
-                : "Mic दबाकर बोलें या नीचे prompt पर tap करें — turant " +
+                ? "Speak in Hindi — text will appear in real-time!"
+                : "Tap mic to speak or tap a prompt below to translate instantly into " +
                   meta.name +
-                  " में translate होगा!"}
+                  "!"}
             </Text>
           )}
 
@@ -528,16 +528,14 @@ export function LiveDialogueScreen() {
                 activeOpacity={0.8}
               >
                 <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
-                <Text style={styles.playRecordingBtnText}>
-                  ▶ Play My Recorded Voice (अपनी आवाज़ सुनें)
-                </Text>
+                <Text style={styles.playRecordingBtnText}>▶ Play My Recorded Voice</Text>
               </TouchableOpacity>
 
               <View style={styles.quickMatchCard}>
                 <View style={styles.quickMatchHeader}>
                   <Sparkles size={14} color={Colors.terracotta} />
                   <Text style={styles.quickMatchTitle}>
-                    Translate to {meta.name} (जो आपने बोला, उसपर tap karein):
+                    Translate to {meta.name} — tap the phrase you spoke:
                   </Text>
                 </View>
                 <View style={styles.quickMatchChipsRow}>
@@ -615,8 +613,7 @@ export function LiveDialogueScreen() {
             <Text style={styles.quickBadge}>⚡ ZERO DELAY</Text>
           </View>
           <Text style={styles.quickSubtext}>
-            Web app ki tarah kisi bhi command par tap karein — turant translate hoga aur phone
-            speaker se bolega!
+            Tap any command below to translate instantly and play through the phone speaker!
           </Text>
 
           {/* Category Tabs */}
@@ -631,7 +628,7 @@ export function LiveDialogueScreen() {
                   activeCategory === "classroom" && styles.catTabTextActive,
                 ]}
               >
-                Classroom (कक्षा)
+                Classroom
               </Text>
             </TouchableOpacity>
 
@@ -642,7 +639,7 @@ export function LiveDialogueScreen() {
               <Text
                 style={[styles.catTabText, activeCategory === "numbers" && styles.catTabTextActive]}
               >
-                Numbers (गिनती)
+                Numbers
               </Text>
             </TouchableOpacity>
 
@@ -653,7 +650,7 @@ export function LiveDialogueScreen() {
               <Text
                 style={[styles.catTabText, activeCategory === "daily" && styles.catTabTextActive]}
               >
-                Daily & Habits (दैनिक)
+                Daily & Habits
               </Text>
             </TouchableOpacity>
           </View>
@@ -696,7 +693,7 @@ export function LiveDialogueScreen() {
               style={styles.textInput}
               value={inputText}
               onChangeText={setInputText}
-              placeholder="Yahan Hindi me likhein ya bole (jaise: नमस्ते बच्चों)..."
+              placeholder="Type a Hindi sentence here to translate..."
               placeholderTextColor={Colors.textMuted}
               returnKeyType="send"
               onSubmitEditing={handleTextSubmit}
