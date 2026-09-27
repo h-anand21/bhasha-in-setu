@@ -81,7 +81,7 @@ export function OnboardingScreen({ navigation }: any) {
           style={[
             styles.heroImage,
             index === 0 && {
-              transform: [{ translateY: 42 }],
+              transform: [{ translateY: 24 }],
             },
           ]}
           resizeMode="cover"
@@ -197,15 +197,16 @@ const styles = StyleSheet.create({
   },
 
   // =========================================
-  // HERO (72% screen height to show extensive lower classroom details)
+  // HERO (Full screen height for 100% natural 9:16 artwork framing)
   // =========================================
   hero: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
+    bottom: 0,
     width: W,
-    height: H * 0.72,
+    height: H,
     overflow: "hidden",
     backgroundColor: "#FAF7F0",
   },
@@ -220,10 +221,10 @@ const styles = StyleSheet.create({
   skip: {
     position: "absolute",
     right: 18,
-    minWidth: 92,
-    height: 46,
-    paddingHorizontal: 20,
-    borderRadius: 24,
+    minWidth: 88,
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: 22,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -243,13 +244,13 @@ const styles = StyleSheet.create({
     }),
   },
   skipText: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: "700",
     color: "#12372A",
   },
 
   // =========================================
-  // CONTENT CARD (38% height, deep overlap over lower hero)
+  // CONTENT CARD (29% height, maximum illustration exposure)
   // =========================================
   contentCard: {
     position: "absolute",
@@ -257,14 +258,14 @@ const styles = StyleSheet.create({
     right: -2,
     bottom: -2,
     width: W + 4,
-    height: H * 0.38,
+    height: H * 0.29,
     backgroundColor: "#FFFDF8",
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
+    borderTopLeftRadius: 34,
+    borderTopRightRadius: 34,
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: 14,
-    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingHorizontal: 20,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -285,21 +286,21 @@ const styles = StyleSheet.create({
   // PAGINATION
   // =========================================
   pagination: {
-    height: 16,
+    height: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 6,
-    marginHorizontal: 5,
+    width: 7.5,
+    height: 7.5,
+    borderRadius: 4,
+    marginHorizontal: 3.5,
     backgroundColor: "#F8DCCF",
   },
   activeDot: {
-    width: 34,
+    width: 26,
     backgroundColor: "#FF5A00",
   },
 
@@ -309,12 +310,12 @@ const styles = StyleSheet.create({
   title: {
     width: "100%",
     textAlign: "center",
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 19.5,
+    lineHeight: 23.5,
     fontWeight: "800",
     color: "#064B3F",
-    letterSpacing: -0.4,
-    marginBottom: 2,
+    letterSpacing: -0.3,
+    marginBottom: 1,
   },
 
   // =========================================
@@ -323,12 +324,12 @@ const styles = StyleSheet.create({
   description: {
     width: "100%",
     textAlign: "center",
-    fontSize: 14.5,
-    lineHeight: 20,
+    fontSize: 12.5,
+    lineHeight: 16.5,
     fontWeight: "500",
     color: "#587067",
-    paddingHorizontal: 8,
-    marginBottom: 6,
+    paddingHorizontal: 4,
+    marginBottom: 2,
   },
 
   // =========================================
@@ -336,8 +337,8 @@ const styles = StyleSheet.create({
   // =========================================
   button: {
     width: "94%",
-    height: 54,
-    borderRadius: 28,
+    height: 44,
+    borderRadius: 22,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -348,23 +349,23 @@ const styles = StyleSheet.create({
         shadowRadius: 10,
         shadowOffset: {
           width: 0,
-          height: 5,
+          height: 3,
         },
       },
       android: {
-        elevation: 7,
+        elevation: 6,
       },
     }),
   },
   buttonText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 15.5,
     fontWeight: "800",
   },
   arrow: {
     color: "#FFFFFF",
-    fontSize: 22,
-    marginLeft: 10,
+    fontSize: 18,
+    marginLeft: 6,
     fontWeight: "600",
   },
 
@@ -373,7 +374,7 @@ const styles = StyleSheet.create({
   // =========================================
   bottomDecoration: {
     width: "100%",
-    height: 32,
+    height: 22,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
@@ -381,7 +382,7 @@ const styles = StyleSheet.create({
   },
   line: {
     position: "absolute",
-    bottom: 22,
+    bottom: 16,
     left: 44,
     right: 44,
     height: 1.5,
@@ -390,20 +391,20 @@ const styles = StyleSheet.create({
   },
   pattern: {
     width: "80%",
-    height: 28,
+    height: 24,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
   },
   patternItem: {
-    width: 16,
-    height: 20,
+    width: 14,
+    height: 18,
     alignItems: "center",
     justifyContent: "center",
   },
   patternDiamond: {
-    width: 12,
-    height: 12,
+    width: 10,
+    height: 10,
     borderWidth: 1.5,
     borderColor: "#E6B36C",
     transform: [
@@ -414,30 +415,30 @@ const styles = StyleSheet.create({
   },
   patternDot: {
     position: "absolute",
-    width: 4,
-    height: 4,
+    width: 3.5,
+    height: 3.5,
     borderRadius: 2,
     backgroundColor: "#FF8A25",
   },
   sideLeavesLeft: {
     position: "absolute",
     left: 4,
-    bottom: 4,
+    bottom: 2,
     flexDirection: "row",
   },
   sideLeavesRight: {
     position: "absolute",
     right: 4,
-    bottom: 4,
+    bottom: 2,
     flexDirection: "row",
   },
   leaf: {
-    fontSize: 22,
+    fontSize: 20,
     color: "#3E9B5B",
     fontWeight: "900",
   },
   leafOrange: {
-    fontSize: 20,
+    fontSize: 18,
     color: "#E99D3F",
     fontWeight: "900",
     marginLeft: -4,
