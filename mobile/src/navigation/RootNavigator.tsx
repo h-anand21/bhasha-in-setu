@@ -1,15 +1,7 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { View, StyleSheet } from "react-native";
+import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import {
-  Home,
-  Mic,
-  Camera,
-  FileSpreadsheet,
-  BookOpen,
-  BarChart3,
-} from "lucide-react-native";
 import { Colors } from "../theme/colors";
 import { HomeScreen } from "../screens/HomeScreen";
 import { LiveDialogueScreen } from "../screens/LiveDialogueScreen";
@@ -17,94 +9,48 @@ import { TranslateScreen } from "../screens/TranslateScreen";
 import { WorksheetsScreen } from "../screens/WorksheetsScreen";
 import { LibraryScreen } from "../screens/LibraryScreen";
 import { ProgressScreen } from "../screens/ProgressScreen";
+import { ProfileScreen } from "../screens/ProfileScreen";
+import { SettingsScreen } from "../screens/SettingsScreen";
+import { OfflineScreen } from "../screens/OfflineScreen";
+import { LanguageSelectionScreen } from "../screens/LanguageSelectionScreen";
+import { LanguageDetailsScreen } from "../screens/LanguageDetailsScreen";
+import { CurvedNotchBottomNav, NavTabType } from "../components/CurvedNotchBottomNav";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+function CustomBottomTabBar({ state, navigation }: BottomTabBarProps) {
+  const currentRouteName = state.routes[state.index]?.name || "Home";
+
+  let activeTab: NavTabType = "Home";
+  if (currentRouteName === "Home") activeTab = "Home";
+  else if (currentRouteName === "Lessons") activeTab = "Lessons";
+  else if (currentRouteName === "Live") activeTab = "Live";
+  else if (currentRouteName === "Progress") activeTab = "Progress";
+  else if (currentRouteName === "Profile") activeTab = "Profile";
+
+  const handleTabPress = (tab: NavTabType) => {
+    navigation.navigate(tab);
+  };
+
+  return (
+    <CurvedNotchBottomNav activeTab={activeTab} onTabPress={handleTabPress} isListening={false} />
+  );
+}
+
 function TabNavigator() {
   return (
     <Tab.Navigator
+      tabBar={(props) => <CustomBottomTabBar {...props} />}
       screenOptions={{
-        headerStyle: {
-          backgroundColor: Colors.sand,
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: Colors.cardBorder,
-        },
-        headerTitleStyle: {
-          fontWeight: "800",
-          fontSize: 16,
-          color: Colors.text,
-        },
-        tabBarStyle: {
-          backgroundColor: "#FFFFFF",
-          borderTopColor: Colors.cardBorder,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 6,
-        },
-        tabBarActiveTintColor: Colors.terracotta,
-        tabBarInactiveTintColor: Colors.textMuted,
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: "700",
-        },
+        headerShown: false,
       }}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={({ navigation }) => ({
-          title: "Bhasha Setu",
-          tabBarLabel: "Home",
-          tabBarIcon: ({ color, size }) => <Home size={size - 2} color={color} />,
-          headerRight: () => (
-            <TouchableOpacity
-              style={styles.headerProgressBtn}
-              onPress={() => navigation.navigate("Progress")}
-            >
-              <BarChart3 size={18} color={Colors.terracotta} />
-            </TouchableOpacity>
-          ),
-        })}
-      />
-      <Tab.Screen
-        name="Live"
-        component={LiveDialogueScreen}
-        options={{
-          title: "Live Dialogue",
-          tabBarLabel: "Live Mic",
-          tabBarIcon: ({ color, size }) => <Mic size={size - 2} color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="Translate"
-        component={TranslateScreen}
-        options={{
-          title: "Blackboard Vision",
-          tabBarLabel: "Vision OCR",
-          tabBarIcon: ({ color, size }) => <Camera size={size - 2} color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="Worksheets"
-        component={WorksheetsScreen}
-        options={{
-          title: "Worksheets & Cards",
-          tabBarLabel: "Worksheets",
-          tabBarIcon: ({ color, size }) => <FileSpreadsheet size={size - 2} color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="Library"
-        component={LibraryScreen}
-        options={{
-          title: "Offline Library",
-          tabBarLabel: "Library",
-          tabBarIcon: ({ color, size }) => <BookOpen size={size - 2} color={color} />,
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Lessons" component={WorksheetsScreen} />
+      <Tab.Screen name="Live" component={LiveDialogueScreen} />
+      <Tab.Screen name="Progress" component={ProgressScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
@@ -113,42 +59,18 @@ export function RootNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: Colors.sand,
-        },
-        headerTitleStyle: {
-          fontWeight: "800",
-          fontSize: 16,
-          color: Colors.text,
-        },
-        headerTintColor: Colors.terracotta,
+        headerShown: false,
+        contentStyle: { backgroundColor: Colors.background },
       }}
     >
-      <Stack.Screen
-        name="MainTabs"
-        component={TabNavigator}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Progress"
-        component={ProgressScreen}
-        options={{
-          title: "FLN Retention Progress",
-          headerBackTitle: "Back",
-        }}
-      />
+      <Stack.Screen name="MainTabs" component={TabNavigator} />
+      <Stack.Screen name="Translate" component={TranslateScreen} />
+      <Stack.Screen name="Library" component={LibraryScreen} />
+      <Stack.Screen name="Worksheets" component={WorksheetsScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="Offline" component={OfflineScreen} />
+      <Stack.Screen name="LanguageSelection" component={LanguageSelectionScreen} />
+      <Stack.Screen name="LanguageDetails" component={LanguageDetailsScreen} />
     </Stack.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  headerProgressBtn: {
-    marginRight: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.terracottaLight,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-});

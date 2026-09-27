@@ -1,28 +1,38 @@
 export const Colors = {
   // Brand & Indigenous Themes
-  terracotta: "#C85A32",
+  background: "#FAF7F0",
+  primaryForest: "#12372A",
+  secondaryForest: "#1F5A43",
+  lightGreen: "#E8F2EC",
+  success: "#3D8B63",
+  terracotta: "#E76F51",
   terracottaLight: "#FCEEEA",
   terracottaDark: "#9E3C1B",
-  
-  salGreen: "#2D5A27",
-  salGreenLight: "#EBF3EA",
-  
-  deepIndigo: "#2E3A59",
-  deepIndigoLight: "#ECEFF5",
-  
-  sand: "#F9F6F0",
-  sandDark: "#EFECE4",
-  
-  card: "#FFFFFF",
-  cardBorder: "#E8E2D8",
-  
-  text: "#1F2937",
-  textMuted: "#6B7280",
-  textLight: "#9CA3AF",
-  
-  accentGold: "#D97706",
-  accentGoldLight: "#FEF3C7",
+  warmOrange: "#F47A3C",
+  ochre: "#D9A441",
+  softYellow: "#FFF1C7",
 
-  destructive: "#DC2626",
+  salGreen: "#1F5A43",
+  salGreenLight: "#E8F2EC",
+
+  deepIndigo: "#12372A",
+  deepIndigoLight: "#E8F2EC",
+
+  sand: "#FAF7F0",
+  sandDark: "#EFECE4",
+
+  card: "#FFFFFF",
+  cardBorder: "#E5E0D6",
+  border: "#E5E0D6",
+
+  text: "#17231E",
+  textMuted: "#68756E",
+  textLight: "#9CA3AF",
+
+  accentGold: "#D9A441",
+  accentGoldLight: "#FFF1C7",
+
+  blueGray: "#64748B",
+  destructive: "#E76F51",
   destructiveLight: "#FEE2E2",
 };

@@ -1,10 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import {
-  LANGUAGES,
-  getLang,
-  type LangCode,
-  type LangMeta,
-} from "../lib/lexicon";
+import { LANGUAGES, getLang, type LangCode, type LangMeta } from "../lib/lexicon";
 import { getAppSetting, setAppSetting } from "../services/database";
 
 type LanguageContextType = {
@@ -21,9 +16,7 @@ const LanguageContext = createContext<LanguageContextType>({
   languages: LANGUAGES,
 });
 
-export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [lang, setLangState] = useState<LangCode>("sat");
 
   useEffect(() => {

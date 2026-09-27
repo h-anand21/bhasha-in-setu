@@ -314,7 +314,8 @@ export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
     return { success: false, error: "No audio file provided.", provider: "none" };
   }
 
-  const hasGroqKey = GROQ_API_KEY && !GROQ_API_KEY.includes("Placeholder") && GROQ_API_KEY.startsWith("gsk_");
+  const hasGroqKey =
+    GROQ_API_KEY && !GROQ_API_KEY.includes("Placeholder") && GROQ_API_KEY.startsWith("gsk_");
 
   // 1. Try Groq Whisper first (fast, accurate Hindi) — only if key is configured
   if (hasGroqKey) {
@@ -336,8 +337,7 @@ export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
   // Both failed
   return {
     success: false,
-    error:
-      "आवाज़ पहचान नहीं हो पाई। कृपया साफ़ आवाज़ में बोलें या नीचे phrase चुनें।",
+    error: "आवाज़ पहचान नहीं हो पाई। कृपया साफ़ आवाज़ में बोलें या नीचे phrase चुनें।",
     provider: "none",
   };
 }

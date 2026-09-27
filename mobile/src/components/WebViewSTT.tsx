@@ -138,15 +138,11 @@ export const WebViewSTT = forwardRef<WebViewSTTRef, WebViewSTTProps>(
     const webViewRef = useRef<WebView>(null);
 
     const startListening = useCallback((lang = "hi-IN") => {
-      webViewRef.current?.postMessage(
-        JSON.stringify({ action: "start", lang })
-      );
+      webViewRef.current?.postMessage(JSON.stringify({ action: "start", lang }));
     }, []);
 
     const stopListening = useCallback(() => {
-      webViewRef.current?.postMessage(
-        JSON.stringify({ action: "stop" })
-      );
+      webViewRef.current?.postMessage(JSON.stringify({ action: "stop" }));
     }, []);
 
     useImperativeHandle(ref, () => ({
@@ -182,7 +178,7 @@ export const WebViewSTT = forwardRef<WebViewSTTRef, WebViewSTTProps>(
           console.warn("[WebViewSTT] Message parse error:", err);
         }
       },
-      [onResult, onError, onListeningChange]
+      [onResult, onError, onListeningChange],
     );
 
     return (
@@ -202,7 +198,7 @@ export const WebViewSTT = forwardRef<WebViewSTTRef, WebViewSTTProps>(
         />
       </View>
     );
-  }
+  },
 );
 
 WebViewSTT.displayName = "WebViewSTT";

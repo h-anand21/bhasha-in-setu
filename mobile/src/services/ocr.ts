@@ -3,12 +3,7 @@
  * Extracts Hindi / Devanagari and English text from blackboard and textbook photos.
  */
 
-const OCR_KEYS = [
-  "helloworld",
-  "K87899148788957",
-  "K88126135688957",
-  "K82845942588957",
-];
+const OCR_KEYS = ["helloworld", "K87899148788957", "K88126135688957", "K82845942588957"];
 
 export interface OcrResult {
   success: boolean;
@@ -23,7 +18,7 @@ export interface OcrResult {
  */
 export async function extractTextFromImage(
   base64Data?: string | null,
-  imageUri?: string
+  imageUri?: string,
 ): Promise<OcrResult> {
   if (!base64Data && !imageUri) {
     return {
@@ -80,8 +75,8 @@ export async function extractTextFromImage(
         const err = Array.isArray(data.ErrorMessage)
           ? data.ErrorMessage.join(" ")
           : typeof data.error === "string"
-          ? data.error
-          : "";
+            ? data.error
+            : "";
         console.warn(`OCR processing error with key ${key}: ${err}`);
         // If throttled, try next key
         if (err.includes("overloaded") || err.includes("throttled") || err.includes("E551")) {
@@ -103,7 +98,8 @@ export async function extractTextFromImage(
         } else {
           return {
             success: false,
-            error: "No readable Hindi/English text could be detected in this photo. Please ensure clear lighting and legible writing.",
+            error:
+              "No readable Hindi/English text could be detected in this photo. Please ensure clear lighting and legible writing.",
           };
         }
       }
@@ -115,7 +111,8 @@ export async function extractTextFromImage(
 
   return {
     success: false,
-    error: "OCR service is currently unavailable or network timed out. Please check your internet connection or type the text directly.",
+    error:
+      "OCR service is currently unavailable or network timed out. Please check your internet connection or type the text directly.",
   };
 }
 

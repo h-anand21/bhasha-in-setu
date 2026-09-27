@@ -1,17 +1,5 @@
-import {
-  EN_PHRASE_TO_HI,
-  EN_TO_HI,
-  LEXICON,
-  PHRASES,
-  type Entry,
-  type LangCode,
-} from "./lexicon";
-import {
-  devanagariToOlChiki,
-  devanagariToRoman,
-  toDevanagari,
-  toOlChiki,
-} from "./translit";
+import { EN_PHRASE_TO_HI, EN_TO_HI, LEXICON, PHRASES, type Entry, type LangCode } from "./lexicon";
+import { devanagariToOlChiki, devanagariToRoman, toDevanagari, toOlChiki } from "./translit";
 
 export type TokenResult = {
   source: string;
@@ -33,7 +21,10 @@ const PUNCT = /[।?!.,;:"'()\-–—_/\\]/g;
 
 const normalise = (s: string) => {
   let clean = s.replace(PUNCT, " ").replace(/\s+/g, " ").trim().toLowerCase();
-  clean = clean.replace(/^(हे|हाय|हेलो|हलो|हेल्लो)\s+आई\s+एम\s+(.+)$/iu, (_, _g, name) => `नमस्ते मैं ${name} हूं`);
+  clean = clean.replace(
+    /^(हे|हाय|हेलो|हलो|हेल्लो)\s+आई\s+एम\s+(.+)$/iu,
+    (_, _g, name) => `नमस्ते मैं ${name} हूं`,
+  );
   clean = clean.replace(/^आई\s+एम\s+(.+)$/iu, (_, name) => `मैं ${name} हूं`);
   clean = clean.replace(/^(माय|माई)\s+नेम\s+इज\s+(.+)$/iu, (_, name) => `मेरा नाम ${name} है`);
   return clean;

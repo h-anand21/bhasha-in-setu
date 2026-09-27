@@ -133,7 +133,7 @@ export async function generateAndShareWorksheetPDF(data: PrintableWorksheetData)
           <td style="width: 10%; text-align: center;"></td>
           <td style="width: 45%;">○ <span class="tribal-word">${w.native}</span> <em>(${w.roman})</em></td>
         </tr>
-      `
+      `,
         )
         .join("")}
     </table>
@@ -146,7 +146,7 @@ export async function generateAndShareWorksheetPDF(data: PrintableWorksheetData)
         .map(
           (w, i) => `
         <li>${w} = <span class="blank-line"></span></li>
-      `
+      `,
         )
         .join("")}
     </ol>
@@ -163,7 +163,7 @@ export async function generateAndShareWorksheetPDF(data: PrintableWorksheetData)
           <div class="tribal-word">${s.native}</div>
           <div style="font-size: 11px; color: #6B7280; font-style: italic;">${s.roman}</div>
         </li>
-      `
+      `,
         )
         .join("")}
     </ol>

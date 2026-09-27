@@ -113,7 +113,7 @@ function seedLessons(db: SQLite.SQLiteDatabase) {
         l.outcomeEn,
         JSON.stringify(l.lines),
         category,
-      ]
+      ],
     );
   });
 }
@@ -131,7 +131,8 @@ export function getStoredLessons(category?: string, query?: string): LessonRecor
 
   if (query && query.trim()) {
     const q = `%${query.trim().toLowerCase()}%`;
-    sql += " AND (LOWER(title_hi) LIKE ? OR LOWER(title_en) LIKE ? OR LOWER(outcome_en) LIKE ? OR LOWER(lines_json) LIKE ?)";
+    sql +=
+      " AND (LOWER(title_hi) LIKE ? OR LOWER(title_en) LIKE ? OR LOWER(outcome_en) LIKE ? OR LOWER(lines_json) LIKE ?)";
     params.push(q, q, q, q);
   }
 
@@ -173,7 +174,7 @@ export function toggleLessonSync(id: string): boolean {
   const db = getDatabase();
   const current = db.getFirstSync<{ is_synced: number }>(
     "SELECT is_synced FROM lessons WHERE id = ?",
-    [id]
+    [id],
   );
   const next = current?.is_synced ? 0 : 1;
   db.runSync("UPDATE lessons SET is_synced = ? WHERE id = ?", [next, id]);
@@ -191,13 +192,13 @@ export function logProgressEvent(
   kind: "speech" | "ocr" | "worksheet" | "lesson",
   lang: LangCode,
   wordsCount = 1,
-  metadata = ""
+  metadata = "",
 ): void {
   const db = getDatabase();
   const id = `evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   db.runSync(
     "INSERT INTO progress_events (id, kind, lang, words_count, metadata, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
-    [id, kind, lang, wordsCount, metadata, Date.now()]
+    [id, kind, lang, wordsCount, metadata, Date.now()],
   );
 }
 
@@ -206,7 +207,7 @@ export function getProgressStats(): ProgressStats {
   const db = getDatabase();
 
   const events = db.getAllSync<{ kind: string; words_count: number }>(
-    "SELECT kind, words_count FROM progress_events"
+    "SELECT kind, words_count FROM progress_events",
   );
 
   let totalWords = 0;
@@ -220,11 +221,9 @@ export function getProgressStats(): ProgressStats {
   });
 
   const syncedRow = db.getFirstSync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM lessons WHERE is_synced = 1"
+    "SELECT COUNT(*) as count FROM lessons WHERE is_synced = 1",
   );
-  const totalRow = db.getFirstSync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM lessons"
-  );
+  const totalRow = db.getFirstSync<{ count: number }>("SELECT COUNT(*) as count FROM lessons");
 
   const syncedCount = syncedRow?.count ?? 0;
   const totalCount = totalRow?.count ?? SAMPLE_LESSONS.length;
