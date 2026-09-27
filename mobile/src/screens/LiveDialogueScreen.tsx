@@ -8,10 +8,10 @@ import {
   TextInput,
   Animated,
   Switch,
+  Keyboard,
 } from "react-native";
 import {
   Mic,
-  MicOff,
   Volume2,
   Zap,
   Sparkles,
@@ -19,113 +19,15 @@ import {
   RotateCcw,
   Check,
   Radio,
-  X,
+  BookOpen,
+  Send,
+  Info,
 } from "lucide-react-native";
-import { WebView, type WebViewMessageEvent } from "react-native-webview";
-import { Audio } from "expo-av";
 import { Colors } from "../theme/colors";
 import { useLanguage } from "../context/LanguageContext";
 import { translate, type TranslationResult } from "../lib/translate";
 import { speakNative } from "../services/speech";
 import { logProgressEvent } from "../services/database";
-
-const SPEECH_HTML = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin:0;padding:0;background:transparent;">
-  <script>
-    var recognition = null;
-    var keepListening = false;
-    var currentLang = 'hi-IN';
-
-    function createRecognizer() {
-      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) return null;
-      var r = new SR();
-      r.lang = currentLang;
-      r.continuous = true;
-      r.interimResults = true;
-      r.maxAlternatives = 1;
-
-      r.onstart = function() {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SPEECH_START' }));
-      };
-
-      r.onresult = function(event) {
-        var final = '';
-        var interim = '';
-        for (var i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            final += event.results[i][0].transcript;
-          } else {
-            interim += event.results[i][0].transcript;
-          }
-        }
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'SPEECH_RESULT',
-          final: final.trim(),
-          interim: interim.trim()
-        }));
-      };
-
-      r.onerror = function(event) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'SPEECH_ERROR',
-          error: event.error || 'speech_error'
-        }));
-      };
-
-      r.onend = function() {
-        if (keepListening) {
-          try {
-            r.start();
-          } catch(e) {}
-        } else {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SPEECH_END' }));
-        }
-      };
-
-      return r;
-    }
-
-    window.startSpeech = function(lang) {
-      if (lang) currentLang = lang;
-      keepListening = true;
-      try {
-        if (!recognition) {
-          recognition = createRecognizer();
-        } else {
-          recognition.lang = currentLang;
-        }
-        if (recognition) {
-          recognition.start();
-        } else {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'NOT_SUPPORTED' }));
-        }
-      } catch (err) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'SPEECH_ERROR',
-          error: err.message
-        }));
-      }
-    };
-
-    window.stopSpeech = function() {
-      keepListening = false;
-      try {
-        if (recognition) {
-          recognition.stop();
-        }
-      } catch (err) {}
-    };
-  </script>
-</body>
-</html>
-`;
 
 type Turn = {
   id: number;
@@ -139,34 +41,30 @@ type Turn = {
 export function LiveDialogueScreen() {
   const { lang, setLang, meta, languages } = useLanguage();
 
-  // Control states
-  const [isListening, setIsListening] = useState(false);
-  const [interimText, setInterimText] = useState("");
+  // Input & state
+  const [inputText, setInputText] = useState("");
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [inputLang, setInputLang] = useState<"hi-IN" | "en-IN">("hi-IN");
-  const [inputText, setInputText] = useState("");
-  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<"classroom" | "daily" | "numbers">("classroom");
 
-  // Turn-based live dialogue stream (like web version)
+  // Turns stream
   const [turns, setTurns] = useState<Turn[]>([
     {
       id: 1,
       hindi: "नमस्ते बच्चों",
       native: translate("नमस्ते बच्चों", lang).native,
       roman: translate("नमस्ते बच्चों", lang).roman,
-      timestamp: "Default",
+      timestamp: "Just now",
       ms: 1,
     },
   ]);
 
-  const webViewRef = useRef<WebView>(null);
   const inputRef = useRef<TextInput>(null);
   const langRef = useRef(lang);
   langRef.current = lang;
   const autoSpeakRef = useRef(autoSpeak);
   autoSpeakRef.current = autoSpeak;
-  const isListeningRef = useRef(isListening);
-  isListeningRef.current = isListening;
 
   // Soundwave animation
   const barAnim1 = useRef(new Animated.Value(10)).current;
@@ -175,10 +73,7 @@ export function LiveDialogueScreen() {
   const barAnim4 = useRef(new Animated.Value(24)).current;
   const barAnim5 = useRef(new Animated.Value(12)).current;
 
-  // Concentric radar ring pulse
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  // Re-translate all existing turns when language changes
+  // Re-translate all existing turns when target tribal language changes
   useEffect(() => {
     setTurns((prev) =>
       prev.map((t) => {
@@ -192,16 +87,14 @@ export function LiveDialogueScreen() {
     );
   }, [lang]);
 
-  // Soundwave and pulsing ring animation loop
+  // Soundwave animation when typing or voice mode is active
   useEffect(() => {
     let animLoop: Animated.CompositeAnimation | null = null;
-    let pulseLoop: Animated.CompositeAnimation | null = null;
-
-    if (isListening) {
+    if (isVoiceActive || inputText.trim().length > 0) {
       animLoop = Animated.loop(
         Animated.parallel([
           Animated.sequence([
-            Animated.timing(barAnim1, { toValue: 46, duration: 250, useNativeDriver: false }),
+            Animated.timing(barAnim1, { toValue: 44, duration: 250, useNativeDriver: false }),
             Animated.timing(barAnim1, { toValue: 8, duration: 250, useNativeDriver: false }),
           ]),
           Animated.sequence([
@@ -217,36 +110,26 @@ export function LiveDialogueScreen() {
             Animated.timing(barAnim4, { toValue: 10, duration: 220, useNativeDriver: false }),
           ]),
           Animated.sequence([
-            Animated.timing(barAnim5, { toValue: 42, duration: 260, useNativeDriver: false }),
+            Animated.timing(barAnim5, { toValue: 40, duration: 260, useNativeDriver: false }),
             Animated.timing(barAnim5, { toValue: 8, duration: 260, useNativeDriver: false }),
           ]),
         ])
       );
       animLoop.start();
-
-      pulseLoop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1.0, duration: 800, useNativeDriver: true }),
-        ])
-      );
-      pulseLoop.start();
     } else {
       barAnim1.setValue(10);
       barAnim2.setValue(16);
       barAnim3.setValue(12);
       barAnim4.setValue(18);
       barAnim5.setValue(10);
-      pulseAnim.setValue(1.0);
     }
 
     return () => {
       if (animLoop) animLoop.stop();
-      if (pulseLoop) pulseLoop.stop();
     };
-  }, [isListening]);
+  }, [isVoiceActive, inputText]);
 
-  // Push a new spoken sentence turn into the live dialogue stream
+  // Push phrase into the dialogue stream and play audio
   const pushTurn = (spokenPhrase: string) => {
     if (!spokenPhrase.trim()) return;
     const t0 = Date.now();
@@ -263,9 +146,9 @@ export function LiveDialogueScreen() {
       ms,
     };
 
-    setTurns((prev) => [newTurn, ...prev.filter((t) => t.hindi !== spokenPhrase.trim()).slice(0, 15)]);
+    setTurns((prev) => [newTurn, ...prev.filter((t) => t.hindi !== spokenPhrase.trim()).slice(0, 20)]);
 
-    // Log progress event in SQLite
+    // Save to SQLite
     logProgressEvent("speech", currentLangCode, res.tokens.length, spokenPhrase.trim());
 
     // Auto-broadcast voice audio out loud if enabled
@@ -274,76 +157,56 @@ export function LiveDialogueScreen() {
     }
   };
 
-  // Toggle Continuous Microphone Listening
-  const handleMicToggle = async () => {
-    if (isListening) {
-      // User tapped to turn off listening
-      setIsListening(false);
-      setInterimText("");
-      webViewRef.current?.injectJavaScript(`if (window.stopSpeech) { window.stopSpeech(); } true;`);
-      setVoiceNotice("Microphone paused. Tap to resume continuous listening.");
-    } else {
-      // User tapped to start listening continuously
-      setVoiceNotice("Requesting microphone…");
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== "granted") {
-        setVoiceNotice("Microphone permission denied. Allow mic in settings or use keyboard.");
-        inputRef.current?.focus();
-        return;
-      }
+  // Handle Voice Dictation Activation
+  const handleMicPress = () => {
+    setIsVoiceActive(true);
+    inputRef.current?.focus();
+  };
 
-      setIsListening(true);
-      setVoiceNotice(`🔴 Continuous listening active (${inputLang === "hi-IN" ? "Hindi" : "English"})…`);
-      webViewRef.current?.injectJavaScript(
-        `if (window.startSpeech) { window.startSpeech('${inputLang}'); } true;`
-      );
+  // Real-time text change (as user speaks via keyboard mic or types)
+  const handleTextChange = (text: string) => {
+    setInputText(text);
+  };
+
+  // When user finishes sentence (presses return or submit)
+  const handleSubmitSentence = () => {
+    if (inputText.trim()) {
+      pushTurn(inputText.trim());
+      setInputText("");
     }
   };
 
-  // Handle live recognition stream from WebView
-  const onWebViewMessage = (event: WebViewMessageEvent) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-
-      if (data.type === "SPEECH_RESULT") {
-        if (data.interim) {
-          setInterimText(data.interim);
-        }
-        if (data.final) {
-          setInterimText("");
-          pushTurn(data.final);
-          setVoiceNotice(`Spoken: "${data.final}"`);
-        }
-      } else if (data.type === "SPEECH_START") {
-        setIsListening(true);
-        setVoiceNotice("🔴 Listening continuously... Bolen Hindi me!");
-      } else if (data.type === "SPEECH_END") {
-        // If still listening in state, restart
-        if (isListeningRef.current) {
-          webViewRef.current?.injectJavaScript(
-            `if (window.startSpeech) { window.startSpeech('${inputLang}'); } true;`
-          );
-        }
-      } else if (data.type === "SPEECH_ERROR" || data.type === "NOT_SUPPORTED") {
-        console.warn("Speech recognition notice:", data.error || data.type);
-        setVoiceNotice("💡 Keyboard mic ready: Tap text box and use keyboard 🎙️ mic to dictate!");
-      }
-    } catch (e) {
-      console.warn("Speech message error:", e);
-    }
-  };
-
-  // Quick Classroom Prompts
-  const quickPrompts = [
+  // Categories of instant classroom commands
+  const classroomPrompts = [
     "नमस्ते बच्चों",
     "सब बच्चे बैठ जाओ",
     "किताब खोलो और पढ़ो",
-    "खाना खाओ और पानी पियो",
-    "गिनती एक से दस सीखो",
+    "ध्यान से सुनो",
+    "अपनी जगह पर जाओ",
     "तुमने आज क्या सीखा",
-    "हाथ साफ करो",
-    "सूरज निकला सुबह हुई",
   ];
+
+  const numbersPrompts = [
+    "गिनती एक से दस सीखो",
+    "एक दो तीन चार पाँच",
+    "छह सात आठ नौ दस",
+    "कितने बच्चे आए हैं",
+  ];
+
+  const dailyPrompts = [
+    "सूरज निकला सुबह हुई",
+    "हाथ साफ करो",
+    "साफ पानी पियो",
+    "खाना खाओ",
+    "गाँव और हमारा स्कूल",
+  ];
+
+  const activePromptList =
+    activeCategory === "classroom"
+      ? classroomPrompts
+      : activeCategory === "numbers"
+      ? numbersPrompts
+      : dailyPrompts;
 
   return (
     <ScrollView
@@ -351,21 +214,6 @@ export function LiveDialogueScreen() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Hidden Web Speech Engine */}
-      <WebView
-        ref={webViewRef}
-        originWhitelist={["*"]}
-        source={{
-          html: SPEECH_HTML,
-          baseUrl: "https://bhashasetu.local",
-        }}
-        onMessage={onWebViewMessage}
-        mediaCapturePermissionGrantType="grant"
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        style={styles.hiddenWebView}
-      />
-
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.badgeRow}>
@@ -374,15 +222,15 @@ export function LiveDialogueScreen() {
         </View>
         <Text style={styles.title}>Live Classroom Dialogue</Text>
         <Text style={styles.subtitle}>
-          Speak Hindi continuously — tablet synthesizes{" "}
+          Speak Hindi ➔ Live Native{" "}
           <Text style={styles.targetLangHighlight}>
             {meta.name} ({meta.nativeName})
           </Text>{" "}
-          audio in real-time.
+          voice broadcast.
         </Text>
       </View>
 
-      {/* Language Switcher Bar (Mirrored from Web LangPicker) */}
+      {/* Target Language Switcher Bar (Mirrored from Web LangPicker) */}
       <View style={styles.langPickerCard}>
         <Text style={styles.sectionLabel}>TARGET TRIBAL LANGUAGE:</Text>
         <View style={styles.langTabsRow}>
@@ -400,7 +248,7 @@ export function LiveDialogueScreen() {
                     {l.name}
                   </Text>
                   <Text style={[styles.langNative, isSelected && styles.langNativeActive]}>
-                    {l.nativeName}
+                    {l.nativeName} ({l.script})
                   </Text>
                 </View>
                 {isSelected && <Check size={14} color="#FFFFFF" style={{ marginLeft: 4 }} />}
@@ -409,7 +257,7 @@ export function LiveDialogueScreen() {
           })}
         </View>
 
-        {/* Input Language & Auto-Broadcast Controls */}
+        {/* Controls Row */}
         <View style={styles.controlsRow}>
           {/* Teacher speaks Hindi / English Toggle */}
           <View style={styles.inputLangToggle}>
@@ -448,8 +296,8 @@ export function LiveDialogueScreen() {
         </View>
       </View>
 
-      {/* 3D Microphone Stage (Direct Continuous Speaking) */}
-      <View style={[styles.micStage, isListening && styles.micStageActive]}>
+      {/* Voice Dictation Stage */}
+      <View style={[styles.micStage, isVoiceActive && styles.micStageActive]}>
         {/* Equalizer Soundwave Bars */}
         <View style={styles.equalizerRow}>
           <Animated.View style={[styles.eqBar, { height: barAnim1 }]} />
@@ -459,59 +307,28 @@ export function LiveDialogueScreen() {
           <Animated.View style={[styles.eqBar, { height: barAnim5 }]} />
         </View>
 
-        {/* Big Mic Button with Glowing Acoustic Rings */}
-        <View style={styles.micButtonContainer}>
-          {isListening && (
-            <Animated.View
-              style={[
-                styles.pulseRing,
-                {
-                  transform: [{ scale: pulseAnim }],
-                },
-              ]}
-            />
-          )}
+        {/* Big Mic Button */}
+        <TouchableOpacity
+          style={styles.micButton}
+          onPress={handleMicPress}
+          activeOpacity={0.85}
+        >
+          <Mic size={42} color="#FFFFFF" />
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.micButton, isListening ? styles.micButtonListening : styles.micButtonIdle]}
-            onPress={handleMicToggle}
-            activeOpacity={0.85}
-          >
-            {isListening ? (
-              <MicOff size={40} color="#FFFFFF" />
-            ) : (
-              <Mic size={42} color="#FFFFFF" />
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Status text */}
-        <Text style={[styles.micStatusTitle, isListening && styles.micStatusTitleActive]}>
-          {isListening
-            ? `Listening continuously… speak now in ${inputLang === "hi-IN" ? "Hindi" : "English"}`
-            : "Tap Mic to Start Continuous Speaking"}
+        <Text style={styles.micStatusTitle}>
+          {isVoiceActive ? "Speak via Keyboard Mic (🎙️)" : "Tap Mic to Speak in Hindi"}
         </Text>
 
-        <Text style={styles.interimText}>
-          {interimText
-            ? `“${interimText}…”`
-            : isListening
-            ? "Bina roke bolte jayein — har sentence live translate aur broadcast hoga!"
-            : "Direct speech stream: Ek baar tap karein aur continuous bolein"}
+        <Text style={styles.micInstructionText}>
+          💡 Mic dabate hi keyboard khulega — keyboard ke <Text style={{ fontWeight: "900", color: Colors.terracotta }}>🎙️ mic icon</Text> par tap karke Hindi me bolte jayein!
         </Text>
-
-        {voiceNotice && (
-          <View style={styles.noticeBox}>
-            <Sparkles size={13} color={Colors.salGreen} />
-            <Text style={styles.noticeText}>{voiceNotice}</Text>
-          </View>
-        )}
       </View>
 
-      {/* Manual Hindi Input Fallback / Keyboard Mic */}
+      {/* Live Voice Input Box */}
       <View style={styles.inputCard}>
         <View style={styles.inputHeaderRow}>
-          <Text style={styles.sectionLabel}>OR TYPE / KEYBOARD MIC DICTATE:</Text>
+          <Text style={styles.sectionLabel}>YOUR SPOKEN SENTENCE (HINDI):</Text>
           {inputText.length > 0 && (
             <TouchableOpacity onPress={() => setInputText("")}>
               <Text style={styles.clearBtnText}>Clear</Text>
@@ -523,55 +340,89 @@ export function LiveDialogueScreen() {
             ref={inputRef}
             style={styles.textInput}
             value={inputText}
-            onChangeText={setInputText}
-            placeholder="Yahan type karein ya keyboard mic 🎙️ se bolein..."
+            onChangeText={handleTextChange}
+            onFocus={() => setIsVoiceActive(true)}
+            onBlur={() => setIsVoiceActive(false)}
+            placeholder="Yahan bole gaye shabd dikhenge... (jaise: नमस्ते बच्चों)"
             placeholderTextColor={Colors.textMuted}
-            onSubmitEditing={() => {
-              if (inputText.trim()) {
-                pushTurn(inputText.trim());
-                setInputText("");
-              }
-            }}
+            returnKeyType="send"
+            onSubmitEditing={handleSubmitSentence}
           />
-          {inputText.trim().length > 0 && (
-            <TouchableOpacity
-              style={styles.sendBtn}
-              onPress={() => {
-                pushTurn(inputText.trim());
-                setInputText("");
-              }}
-            >
-              <Text style={styles.sendBtnText}>Translate</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
+            onPress={handleSubmitSentence}
+            disabled={!inputText.trim()}
+          >
+            <Send size={16} color="#FFFFFF" />
+            <Text style={styles.sendBtnText}>Translate</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Quick Classroom Commands (1-Tap Instant Broadcast) */}
-      <View style={styles.quickHeader}>
-        <Sparkles size={14} color={Colors.terracotta} />
-        <Text style={styles.quickTitle}>Fast Classroom Prompts (Tap to Speak out loud):</Text>
-      </View>
-      <View style={styles.chipsRow}>
-        {quickPrompts.map((p) => (
+      {/* 1-Tap Classroom Commands (No Typing Needed!) */}
+      <View style={styles.quickCard}>
+        <View style={styles.quickHeaderRow}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Sparkles size={16} color={Colors.terracotta} />
+            <Text style={styles.quickHeaderTitle}>1-Tap Classroom Voice Commands:</Text>
+          </View>
+        </View>
+        <Text style={styles.quickSubtext}>
+          Kisi bhi sentence par tap karein — turant translate hoga aur phone bolkar sunayega!
+        </Text>
+
+        {/* Category Tabs */}
+        <View style={styles.categoryRow}>
           <TouchableOpacity
-            key={p}
-            style={styles.chip}
-            onPress={() => pushTurn(p)}
-            activeOpacity={0.75}
+            style={[styles.catTab, activeCategory === "classroom" && styles.catTabActive]}
+            onPress={() => setActiveCategory("classroom")}
           >
-            <Volume2 size={12} color={Colors.terracotta} />
-            <Text style={styles.chipText}>{p}</Text>
+            <Text style={[styles.catTabText, activeCategory === "classroom" && styles.catTabTextActive]}>
+              Classroom (कक्षा)
+            </Text>
           </TouchableOpacity>
-        ))}
+
+          <TouchableOpacity
+            style={[styles.catTab, activeCategory === "numbers" && styles.catTabActive]}
+            onPress={() => setActiveCategory("numbers")}
+          >
+            <Text style={[styles.catTabText, activeCategory === "numbers" && styles.catTabTextActive]}>
+              Numbers (गिनती)
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.catTab, activeCategory === "daily" && styles.catTabActive]}
+            onPress={() => setActiveCategory("daily")}
+          >
+            <Text style={[styles.catTabText, activeCategory === "daily" && styles.catTabTextActive]}>
+              Daily & Habits (दैनिक)
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Prompt Chips */}
+        <View style={styles.chipsRow}>
+          {activePromptList.map((p) => (
+            <TouchableOpacity
+              key={p}
+              style={styles.chip}
+              onPress={() => pushTurn(p)}
+              activeOpacity={0.75}
+            >
+              <Volume2 size={13} color={Colors.terracotta} />
+              <Text style={styles.chipText}>{p}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
-      {/* Live Dialogue Stream (Every Spoken Sentence in Current Session) */}
+      {/* Live Dialogue Stream (Conversation History) */}
       <View style={styles.streamHeaderRow}>
         <View style={styles.streamHeaderLeft}>
-          <Zap size={14} color={Colors.salGreen} />
+          <Zap size={15} color={Colors.salGreen} />
           <Text style={styles.streamTitle}>
-            Live Dialogue Stream ({turns.length} sentences)
+            Live Dialogue Stream ({turns.length})
           </Text>
         </View>
         {turns.length > 0 && (
@@ -625,17 +476,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.sand,
   },
-  hiddenWebView: {
-    width: 1,
-    height: 1,
-    position: "absolute",
-    opacity: 0.01,
-    bottom: -10,
-    left: -10,
-  },
   content: {
     padding: 16,
-    paddingBottom: 50,
+    paddingBottom: 60,
   },
   header: {
     marginBottom: 14,
@@ -700,7 +543,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     paddingVertical: 10,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     borderRadius: 12,
   },
   langTabActive: {
@@ -719,9 +562,9 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   langNative: {
-    fontSize: 10,
+    fontSize: 9,
     color: Colors.textMuted,
-    marginTop: 1,
+    marginTop: 2,
   },
   langNativeActive: {
     color: "#FFF1EB",
@@ -771,7 +614,7 @@ const styles = StyleSheet.create({
   micStage: {
     backgroundColor: Colors.card,
     borderRadius: 24,
-    paddingVertical: 22,
+    paddingVertical: 20,
     paddingHorizontal: 16,
     alignItems: "center",
     borderWidth: 1,
@@ -786,34 +629,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    height: 48,
-    marginBottom: 12,
+    height: 44,
+    marginBottom: 10,
   },
   eqBar: {
     width: 6,
     borderRadius: 3,
     backgroundColor: Colors.terracotta,
   },
-  micButtonContainer: {
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-    width: 100,
-    height: 100,
-  },
-  pulseRing: {
-    position: "absolute",
-    width: 116,
-    height: 116,
-    borderRadius: 58,
-    borderWidth: 3,
-    borderColor: "rgba(224, 90, 71, 0.4)",
-    backgroundColor: "rgba(224, 90, 71, 0.1)",
-  },
   micButton: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.terracotta,
     justifyContent: "center",
     alignItems: "center",
     elevation: 6,
@@ -822,43 +650,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 10,
   },
-  micButtonIdle: {
-    backgroundColor: Colors.terracotta,
-  },
-  micButtonListening: {
-    backgroundColor: Colors.destructive,
-  },
   micStatusTitle: {
     fontSize: 15,
     fontWeight: "900",
     color: Colors.text,
-    marginTop: 14,
+    marginTop: 12,
   },
-  micStatusTitleActive: {
-    color: Colors.terracotta,
-  },
-  interimText: {
-    fontSize: 12,
-    fontStyle: "italic",
-    color: Colors.textMuted,
-    marginTop: 4,
-    textAlign: "center",
-    minHeight: 18,
-  },
-  noticeBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: Colors.salGreenLight,
-    borderRadius: 10,
-  },
-  noticeText: {
+  micInstructionText: {
     fontSize: 11,
-    fontWeight: "700",
-    color: Colors.salGreen,
+    color: Colors.textMuted,
+    marginTop: 6,
+    textAlign: "center",
+    lineHeight: 16,
+    paddingHorizontal: 10,
   },
   inputCard: {
     backgroundColor: Colors.card,
@@ -872,7 +676,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   clearBtnText: {
     fontSize: 11,
@@ -889,51 +693,94 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.sand,
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     fontSize: 13,
     color: Colors.text,
   },
   sendBtn: {
-    backgroundColor: Colors.deepIndigo,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.terracotta,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     borderRadius: 10,
+  },
+  sendBtnDisabled: {
+    backgroundColor: "#D1D5DB",
   },
   sendBtnText: {
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "800",
   },
-  quickHeader: {
+  quickCard: {
+    backgroundColor: Colors.card,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    marginBottom: 16,
+  },
+  quickHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginBottom: 8,
+    justifyContent: "space-between",
   },
-  quickTitle: {
-    fontSize: 11,
+  quickHeaderTitle: {
+    fontSize: 12,
     fontWeight: "800",
     color: Colors.text,
+  },
+  quickSubtext: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    marginTop: 3,
+    marginBottom: 10,
+  },
+  categoryRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 10,
+  },
+  catTab: {
+    backgroundColor: Colors.sand,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  catTabActive: {
+    backgroundColor: Colors.deepIndigo,
+    borderColor: Colors.deepIndigo,
+  },
+  catTabText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.textMuted,
+  },
+  catTabTextActive: {
+    color: "#FFFFFF",
   },
   chipsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
-    marginBottom: 16,
   },
   chip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.card,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    backgroundColor: Colors.sand,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
   },
   chipText: {
-    fontSize: 11,
+    fontSize: 12,
     color: Colors.text,
     fontWeight: "600",
   },
