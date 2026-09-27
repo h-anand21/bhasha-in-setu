@@ -231,10 +231,6 @@ export function LiveDialogueScreen() {
     } else {
       // STOP LISTENING & TRANSLATE
       setIsRecording(false);
-      setStatusMessage({
-        text: "⏳ Voice capture ho gayi...",
-        type: "info",
-      });
 
       const recRes = await stopAudioRecording();
       if (!recRes.success || !recRes.uri) {
@@ -245,13 +241,14 @@ export function LiveDialogueScreen() {
         return;
       }
 
-      setLastRecordedUri(recRes.uri);
+      const capturedUri = recRes.uri;
+      setLastRecordedUri(capturedUri);
 
-      // If user typed something or selected text, prioritize it immediately
+      // If user already typed something, translate it instantly (no STT needed)
       if (inputText.trim()) {
         const text = inputText.trim();
         setInputText("");
-        pushTurn(text, recRes.uri);
+        pushTurn(text, capturedUri);
         setStatusMessage({
           text: `✅ Translated & Spoken: "${text}"`,
           type: "success",
@@ -259,27 +256,30 @@ export function LiveDialogueScreen() {
         return;
       }
 
-      // Try AI Whisper transcription in the background
-      setIsTranscribing(true);
+      // IMMEDIATELY show the phrase picker so user can pick while STT runs in background
+      // (same as web: don't block user, show choices instantly)
       setStatusMessage({
-        text: "⏳ Recognizing voice with AI... (पहचान रहे हैं...)",
+        text: "🎯 Aapne kya bola? Tab karein ya niche phrase chunein — turant translate hoga!",
         type: "info",
       });
 
-      transcribeAudioFile(recRes.uri).then((sttRes) => {
+      // Run Whisper STT in background — if it succeeds, auto-fill & translate
+      setIsTranscribing(true);
+      transcribeAudioFile(capturedUri).then((sttRes) => {
         setIsTranscribing(false);
         if (sttRes.success && sttRes.text) {
           const spoken = sttRes.text.trim();
-          setInputText(spoken);
+          // Auto-translate immediately (like web does on speech result)
+          pushTurn(spoken, capturedUri);
+          setLastRecordedUri(null);
           setStatusMessage({
-            text: `✅ Recognized: "${spoken}" — Voice translated & spoken!`,
+            text: `✅ Voice Recognized & Translated: "${spoken}"`,
             type: "success",
           });
-          pushTurn(spoken, recRes.uri);
         } else {
-          // If cloud recognition failed or was blocked, prompt user to pick what they spoke
+          // STT failed — user can still pick from phrase chips below
           setStatusMessage({
-            text: "Aapne kya bola? Niche diye gaye options me se tap karein — turant translate hoga!",
+            text: "Voice pehchan nahi hui. Niche se phrase chunein ya type karein!",
             type: "info",
           });
         }

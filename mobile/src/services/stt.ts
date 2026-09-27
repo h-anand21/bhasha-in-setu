@@ -15,36 +15,9 @@ export interface STTResult {
 
 let activeRecording: Audio.Recording | null = null;
 
-// Lightweight speech recording options: 16kHz mono AAC (10x smaller file size for instant upload)
-const fastSpeechRecordingOptions: Audio.RecordingOptions = {
-  isMeteringEnabled: false,
-  android: {
-    extension: ".m4a",
-    outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-    audioEncoder: Audio.AndroidAudioEncoder.AAC,
-    sampleRate: 16000,
-    numberOfChannels: 1,
-    bitRate: 32000,
-  },
-  ios: {
-    extension: ".m4a",
-    outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-    audioQuality: Audio.IOSAudioQuality.LOW,
-    sampleRate: 16000,
-    numberOfChannels: 1,
-    bitRate: 32000,
-    linearPCMBitDepth: 16,
-    linearPCMIsBigEndian: false,
-    linearPCMIsFloat: false,
-  },
-  web: {
-    mimeType: "audio/webm",
-    bitsPerSecond: 32000,
-  },
-};
-
 /**
- * Requests microphone permission and starts fast speech-optimized audio recording.
+ * Requests microphone permission and starts audio recording.
+ * Uses LOW_QUALITY preset (smaller file, faster upload for STT).
  */
 export async function startAudioRecording(): Promise<{
   success: boolean;
@@ -75,22 +48,22 @@ export async function startAudioRecording(): Promise<{
       try {
         await activeRecording.stopAndUnloadAsync();
       } catch (err) {
-        console.warn("Dangling recording cleanup error:", err);
+        console.warn("Dangling recording cleanup:", err);
       }
       activeRecording = null;
     }
 
-    const { recording } = await Audio.Recording.createAsync(fastSpeechRecordingOptions);
+    // Use LOW_QUALITY preset: produces smaller files for faster cloud STT upload
+    const { recording } = await Audio.Recording.createAsync(
+      Audio.RecordingOptionsPresets.LOW_QUALITY,
+    );
 
     activeRecording = recording;
     return { success: true };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "Could not initialize device microphone.";
     console.warn("Failed to start audio recording:", errorMsg);
-    return {
-      success: false,
-      error: errorMsg,
-    };
+    return { success: false, error: errorMsg };
   }
 }
 
@@ -113,7 +86,15 @@ export async function stopAudioRecording(): Promise<{
     const uri = activeRecording.getURI() || undefined;
     activeRecording = null;
 
-    // Immediately restore audio mode to playback through LOUDSPEAKER so speech starts with zero delay
+    // Restore audio mode for loudspeaker playback immediately
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      playThroughEarpieceAndroid: false,
+      shouldDuckAndroid: false,
+      staysActiveInBackground: false,
+    });
+    // Also restore the cached loudspeaker state for speech.ts
     await ensureLoudspeaker();
 
     return {
@@ -125,10 +106,7 @@ export async function stopAudioRecording(): Promise<{
     const errorMsg = err instanceof Error ? err.message : "Failed to finalize audio recording.";
     console.warn("Failed to stop recording:", errorMsg);
     activeRecording = null;
-    return {
-      success: false,
-      error: errorMsg,
-    };
+    return { success: false, error: errorMsg };
   }
 }
 
@@ -147,7 +125,8 @@ export async function cancelAudioRecording(): Promise<void> {
 }
 
 /**
- * Transcribes captured audio using Whisper AI with fast timeout.
+ * Transcribes captured audio using Whisper AI via HuggingFace Gradio space.
+ * Uses 12s timeout for the 3 sequential network calls.
  */
 export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
   if (!fileUri) {
@@ -165,7 +144,7 @@ export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
     });
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4500);
+    const timeout = setTimeout(() => controller.abort(), 12000);
 
     // 1. Upload audio to Gradio space
     const uploadRes = await fetch("https://openai-whisper.hf.space/gradio_api/upload", {
@@ -235,7 +214,7 @@ export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
             }
           }
         } catch (jsonErr) {
-          console.warn("STT JSON parse line error:", jsonErr);
+          console.warn("STT JSON parse error:", jsonErr);
         }
       }
     }
@@ -248,9 +227,6 @@ export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
     const errorMsg =
       err instanceof Error ? err.message : "Speech-to-text service is currently unavailable.";
     console.warn("STT transcription error:", errorMsg);
-    return {
-      success: false,
-      error: errorMsg,
-    };
+    return { success: false, error: errorMsg };
   }
 }
