@@ -69,7 +69,7 @@ export function LiveDialogueScreen() {
     text: string;
     type: "info" | "success" | "error" | "recording";
   }>({
-    text: "Mic dabakar bolein ya niche diye gaye kisi bhi command par tap karein.",
+    text: "Mic dabakar bolein ya kisi bhi command par tap karein — turant translate hoga!",
     type: "info",
   });
 
@@ -228,7 +228,7 @@ export function LiveDialogueScreen() {
       // STOP LISTENING & TRANSLATE
       setIsRecording(false);
       setStatusMessage({
-        text: "⏳ Processing voice...",
+        text: "⏳ Voice capture ho gayi...",
         type: "info",
       });
 
@@ -255,31 +255,31 @@ export function LiveDialogueScreen() {
         return;
       }
 
-      // Run AI Whisper transcription
+      // Try AI Whisper transcription in the background
       setIsTranscribing(true);
       setStatusMessage({
-        text: "⏳ Recognizing your voice with AI... (पहचान रहे हैं...)",
+        text: "⏳ Recognizing voice with AI... (पहचान रहे हैं...)",
         type: "info",
       });
 
-      const sttRes = await transcribeAudioFile(recRes.uri);
-      setIsTranscribing(false);
-
-      if (sttRes.success && sttRes.text) {
-        const spoken = sttRes.text.trim();
-        setInputText(spoken);
-        setStatusMessage({
-          text: `✅ Recognized: "${spoken}" — Voice translated & spoken!`,
-          type: "success",
-        });
-        pushTurn(spoken, recRes.uri);
-      } else {
-        // Friendly fallback if cloud STT didn't recognize words
-        setStatusMessage({
-          text: "Voice record ho gayi! Niche 'Play My Voice' dabakar aawaz sunein ya prompt par tap karein.",
-          type: "info",
-        });
-      }
+      transcribeAudioFile(recRes.uri).then((sttRes) => {
+        setIsTranscribing(false);
+        if (sttRes.success && sttRes.text) {
+          const spoken = sttRes.text.trim();
+          setInputText(spoken);
+          setStatusMessage({
+            text: `✅ Recognized: "${spoken}" — Voice translated & spoken!`,
+            type: "success",
+          });
+          pushTurn(spoken, recRes.uri);
+        } else {
+          // If cloud recognition failed or was blocked, prompt user to pick what they spoke
+          setStatusMessage({
+            text: "Aapne kya bola? Niche diye gaye options me se tap karein — turant translate hoga!",
+            type: "info",
+          });
+        }
+      });
     }
   };
 
@@ -316,7 +316,7 @@ export function LiveDialogueScreen() {
     }
   };
 
-  // Categories of instant classroom commands (100% offline & instant)
+  // Classroom quick commands (Exact match with web phrases in lexicon.ts)
   const classroomPrompts = [
     "नमस्ते बच्चों",
     "सब बच्चे बैठ जाओ",
@@ -454,7 +454,7 @@ export function LiveDialogueScreen() {
         </View>
       </View>
 
-      {/* ================= THE MAIN MIC STAGE (ALWAYS FRONT & CENTER) ================= */}
+      {/* ================= THE MAIN MIC STAGE ================= */}
       <View style={[styles.micStage, isRecording && styles.micStageRecording]}>
         {/* Equalizer Soundwave Bars */}
         <View style={styles.equalizerRow}>
@@ -512,11 +512,9 @@ export function LiveDialogueScreen() {
             style={[
               styles.micButton,
               isRecording && styles.micButtonRecording,
-              isTranscribing && styles.micButtonDisabled,
             ]}
             onPress={handleMicToggle}
             activeOpacity={0.85}
-            disabled={isTranscribing}
           >
             {isTranscribing ? (
               <ActivityIndicator size="large" color="#FFFFFF" />
@@ -545,21 +543,60 @@ export function LiveDialogueScreen() {
         <Text style={styles.micSubtitle}>
           {isRecording
             ? "Hindi me boliye — bolna pura hone par Stop dabayein!"
-            : "Mic dabakar bolein, app sunkar turant " + meta.name + " me bolega!"}
+            : "Mic dabakar bolein ya niche diye prompt par tap karein — turant " + meta.name + " me bolega!"}
         </Text>
 
-        {/* Play Recorded Voice Audio Button if available */}
+        {/* Recorded Audio Action Box & Quick Match Selector */}
         {lastRecordedUri && !isRecording && (
-          <TouchableOpacity
-            style={styles.playRecordingBtn}
-            onPress={() => playRecordedAudio(lastRecordedUri)}
-            activeOpacity={0.8}
-          >
-            <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
-            <Text style={styles.playRecordingBtnText}>
-              ▶ Play My Recorded Voice (अपनी आवाज़ सुनें)
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.recordedActionBox}>
+            <TouchableOpacity
+              style={styles.playRecordingBtn}
+              onPress={() => playRecordedAudio(lastRecordedUri)}
+              activeOpacity={0.8}
+            >
+              <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+              <Text style={styles.playRecordingBtnText}>
+                ▶ Play My Recorded Voice (अपनी आवाज़ सुनें)
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.quickMatchCard}>
+              <View style={styles.quickMatchHeader}>
+                <Sparkles size={14} color={Colors.terracotta} />
+                <Text style={styles.quickMatchTitle}>
+                  Translate to {meta.name} (जो आपने बोला, उसपर tap karein):
+                </Text>
+              </View>
+              <View style={styles.quickMatchChipsRow}>
+                {[
+                  "नमस्ते बच्चों",
+                  "किताब खोलो और पढ़ो",
+                  "सब बच्चे बैठ जाओ",
+                  "ध्यान से सुनो",
+                  "शाबाश बच्चों",
+                  "सूरज निकला सुबह हुई",
+                  "हाथ साफ करो",
+                ].map((phrase) => (
+                  <TouchableOpacity
+                    key={phrase}
+                    style={styles.quickMatchChip}
+                    onPress={() => {
+                      pushTurn(phrase, lastRecordedUri);
+                      setStatusMessage({
+                        text: `✅ Translated & Spoken: "${phrase}" in ${meta.name}`,
+                        type: "success",
+                      });
+                      setLastRecordedUri(null);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Volume2 size={13} color={Colors.terracotta} />
+                    <Text style={styles.quickMatchChipText}>{phrase}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
         )}
       </View>
 
@@ -598,12 +635,12 @@ export function LiveDialogueScreen() {
         <View style={styles.quickHeaderRow}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Sparkles size={16} color={Colors.terracotta} />
-            <Text style={styles.quickHeaderTitle}>1-Tap Instant Voice Commands:</Text>
+            <Text style={styles.quickHeaderTitle}>1-Tap Classroom Commands (Direct Translation):</Text>
           </View>
           <Text style={styles.quickBadge}>⚡ ZERO DELAY</Text>
         </View>
         <Text style={styles.quickSubtext}>
-          Kisi bhi command par tap karein — turant translate hoga aur phone speaker se bolega!
+          Web app ki tarah kisi bhi command par tap karein — turant translate hoga aur phone speaker se bolega!
         </Text>
 
         {/* Category Tabs */}
@@ -1003,9 +1040,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.destructive,
     shadowColor: Colors.destructive,
   },
-  micButtonDisabled: {
-    backgroundColor: Colors.textMuted,
-  },
   micStatusTitle: {
     fontSize: 14,
     fontWeight: "900",
@@ -1024,20 +1058,68 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     paddingHorizontal: 12,
   },
+  recordedActionBox: {
+    width: "100%",
+    alignItems: "center",
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.cardBorder,
+  },
   playRecordingBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
     backgroundColor: Colors.salGreen,
-    borderRadius: 10,
+    borderRadius: 12,
+    marginBottom: 12,
   },
   playRecordingBtnText: {
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "800",
+  },
+  quickMatchCard: {
+    width: "100%",
+    backgroundColor: Colors.sand,
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  quickMatchHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 8,
+  },
+  quickMatchTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: Colors.text,
+  },
+  quickMatchChipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  quickMatchChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  quickMatchChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.text,
   },
   feedbackBox: {
     flexDirection: "row",
