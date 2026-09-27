@@ -132,18 +132,24 @@ export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
       type: "audio/m4a",
     });
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
     // 1. Upload audio to Gradio space
     const uploadRes = await fetch("https://openai-whisper.hf.space/gradio_api/upload", {
       method: "POST",
       body: formData,
+      signal: controller.signal,
     });
 
     if (!uploadRes.ok) {
+      clearTimeout(timeout);
       throw new Error(`Audio upload failed (${uploadRes.status})`);
     }
 
     const uploadedFiles = await uploadRes.json();
     if (!Array.isArray(uploadedFiles) || uploadedFiles.length === 0) {
+      clearTimeout(timeout);
       throw new Error("Invalid response from audio server");
     }
 
@@ -162,21 +168,26 @@ export async function transcribeAudioFile(fileUri: string): Promise<STTResult> {
           "transcribe",
         ],
       }),
+      signal: controller.signal,
     });
 
     if (!callRes.ok) {
+      clearTimeout(timeout);
       throw new Error(`Speech model failed (${callRes.status})`);
     }
 
     const { event_id } = await callRes.json();
     if (!event_id) {
+      clearTimeout(timeout);
       throw new Error("No transcription session created");
     }
 
     // 3. Retrieve transcription result
     const resultRes = await fetch(
-      `https://openai-whisper.hf.space/gradio_api/call/predict/${event_id}`
+      `https://openai-whisper.hf.space/gradio_api/call/predict/${event_id}`,
+      { signal: controller.signal }
     );
+    clearTimeout(timeout);
     const sseText = await resultRes.text();
 
     const lines = sseText.split("\n");

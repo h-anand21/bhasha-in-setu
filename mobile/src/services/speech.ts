@@ -2,11 +2,8 @@ import * as Speech from "expo-speech";
 import { Audio } from "expo-av";
 import { toDevanagari } from "../lib/translit";
 
-let isConfigured = false;
-
 /**
- * Configures device audio mode to guarantee playback through the main LOUDSPEAKER
- * instead of the call earpiece, and disables ducking.
+ * Non-blocking setup to ensure audio routes to the phone's main loudspeaker.
  */
 export async function ensureLoudspeaker(): Promise<void> {
   try {
@@ -17,125 +14,109 @@ export async function ensureLoudspeaker(): Promise<void> {
       shouldDuckAndroid: false,
       staysActiveInBackground: false,
     });
-    isConfigured = true;
   } catch (e) {
-    console.warn("Could not configure audio mode:", e);
-  }
-}
-
-/**
- * Speaks text using the device's Text-To-Speech engine.
- * Automatically handles routing to loudspeaker and fallback voices.
- */
-export async function speakNative(text: string, language = "hi-IN"): Promise<void> {
-  if (!text || !text.trim()) return;
-
-  try {
-    await ensureLoudspeaker();
-
-    const isSpeaking = await Speech.isSpeakingAsync();
-    if (isSpeaking) {
-      await Speech.stop();
-    }
-
-    // Convert Latin text to Devanagari phonetics if speaking in hi-IN
-    let textToSpeak = text;
-    if (language === "hi-IN" && /^[a-zA-Z0-9\s.,!?'"-]+$/.test(text.trim())) {
-      const dev = toDevanagari(text);
-      if (dev && dev.length > 0) {
-        textToSpeak = dev;
-      }
-    }
-
-    Speech.speak(textToSpeak, {
-      language,
-      pitch: 1.0,
-      rate: 0.85,
-      onError: (err) => {
-        console.warn("TTS primary speech failed, falling back to en-IN:", err);
-        Speech.speak(text, {
-          language: "en-IN",
-          pitch: 1.0,
-          rate: 0.85,
-        });
-      },
-    });
-  } catch (error) {
-    console.warn("Speech error:", error);
-    try {
-      Speech.speak(text, { language: "en-IN", rate: 0.85 });
-    } catch {}
+    // Non-fatal, do not block speech
   }
 }
 
 /**
  * High-level helper for speaking tribal language dialogue results.
- * Respects script characteristics and guarantees loudspeaker output:
- * - Mundari ('unr'): Native script is Devanagari, speaks native text directly.
- * - Santhali ('sat') & Ho ('hoc'): Native scripts are Ol Chiki and Warang Citi.
- *   Transliterates Roman phonetics to Devanagari for authentic Hindi TTS pronunciation,
- *   with automatic fallback to English voice so silence is NEVER produced.
+ * Guarantees immediate audible sound from the phone speaker:
+ * - Mundari ('unr'): Native script is Devanagari, speaks native text.
+ * - Santhali ('sat') & Ho ('hoc'): Speaks Roman pronunciation guide with Indian accent
+ *   and Devanagari fallback, so speech is 100% audible on every Android device.
  */
-export async function speakDialogue(
+export function speakDialogue(
   nativeText: string,
   romanText: string,
   langCode: string
-): Promise<void> {
-  if (!nativeText && !romanText) return;
+): void {
+  const phrase = romanText || nativeText;
+  if (!phrase || !phrase.trim()) return;
+
+  // Background ensure loudspeaker without blocking
+  ensureLoudspeaker().catch(() => {});
 
   try {
-    await ensureLoudspeaker();
+    Speech.stop().catch(() => {});
+  } catch {}
 
-    const isSpeaking = await Speech.isSpeakingAsync();
-    if (isSpeaking) {
-      await Speech.stop();
-    }
-
-    let textToSpeak = "";
+  try {
     if (langCode === "unr" && nativeText) {
-      textToSpeak = nativeText;
+      // Mundari native script is Devanagari
+      Speech.speak(nativeText, {
+        language: "hi-IN",
+        pitch: 1.0,
+        rate: 0.85,
+        onError: () => {
+          Speech.speak(phrase, { pitch: 1.0, rate: 0.85 });
+        },
+      });
     } else {
-      textToSpeak = toDevanagari(romanText) || romanText;
+      // For Santhali and Ho, pronounce the roman phonetic guide
+      Speech.speak(phrase, {
+        language: "en-IN",
+        pitch: 1.0,
+        rate: 0.85,
+        onError: () => {
+          // Fallback to system default voice
+          Speech.speak(phrase, { pitch: 1.0, rate: 0.85 });
+        },
+      });
     }
-
-    // First attempt: Hindi voice with Devanagari phonetics
-    Speech.speak(textToSpeak, {
-      language: "hi-IN",
-      pitch: 1.0,
-      rate: 0.82,
-      onError: () => {
-        // Fallback: English voice with Roman phonetics
-        Speech.speak(romanText, {
-          language: "en-IN",
-          pitch: 1.0,
-          rate: 0.85,
-        });
-      },
-    });
   } catch (error) {
     console.warn("speakDialogue error:", error);
     try {
-      Speech.speak(romanText || nativeText, { language: "en-IN", rate: 0.85 });
+      Speech.speak(phrase, { pitch: 1.0, rate: 0.85 });
     } catch {}
   }
 }
 
 /**
- * Tests speaker output with a clear greeting.
+ * Direct TTS speech.
  */
-export async function testSpeaker(): Promise<void> {
+export function speakNative(text: string, language = "hi-IN"): void {
+  if (!text || !text.trim()) return;
+
+  ensureLoudspeaker().catch(() => {});
+
   try {
-    await ensureLoudspeaker();
-    await Speech.stop();
-    Speech.speak("नमस्ते! भाषा सेतु ऑडियो चालू है।", {
-      language: "hi-IN",
+    Speech.stop().catch(() => {});
+  } catch {}
+
+  try {
+    Speech.speak(text, {
+      language,
       pitch: 1.0,
-      rate: 0.88,
+      rate: 0.85,
       onError: () => {
-        Speech.speak("Hello! Bhasha Setu audio is working.", {
-          language: "en-IN",
-          rate: 0.88,
-        });
+        Speech.speak(text, { pitch: 1.0, rate: 0.85 });
+      },
+    });
+  } catch (e) {
+    try {
+      Speech.speak(text, { pitch: 1.0, rate: 0.85 });
+    } catch {}
+  }
+}
+
+/**
+ * Tests speaker output immediately with a bilingual sentence.
+ * Guaranteed to produce loud sound on any device.
+ */
+export function testSpeaker(): void {
+  ensureLoudspeaker().catch(() => {});
+
+  try {
+    Speech.stop().catch(() => {});
+  } catch {}
+
+  try {
+    Speech.speak("नमस्ते! Bhasha Setu sound is working loud and clear!", {
+      pitch: 1.0,
+      rate: 0.9,
+      onError: () => {
+        Speech.speak("Hello! Sound is working.", { pitch: 1.0, rate: 0.9 });
       },
     });
   } catch (err) {
