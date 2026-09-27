@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -35,7 +35,7 @@ import {
   stopSpeech,
 } from "../services/speech";
 import { logProgressEvent } from "../services/database";
-import { startAudioRecording, stopAudioRecording, transcribeAudioFile } from "../services/stt";
+import { WebViewSTT, type WebViewSTTRef } from "../components/WebViewSTT";
 
 type Turn = {
   id: number;
@@ -61,6 +61,9 @@ export function LiveDialogueScreen() {
   const [activeCategory, setActiveCategory] = useState<"classroom" | "daily" | "numbers">(
     "classroom",
   );
+  // Real-time interim text from WebView SpeechRecognition (like web version)
+  const [interimText, setInterimText] = useState("");
+  const sttRef = useRef<WebViewSTTRef>(null);
 
   // Status feedback
   const [statusMessage, setStatusMessage] = useState<{
@@ -207,85 +210,61 @@ export function LiveDialogueScreen() {
     }, 50);
   };
 
-  // Toggle Live Microphone Speaking
-  const handleMicToggle = async () => {
-    if (isTranscribing) return;
-
-    if (!isRecording) {
-      // START LISTENING & RECORDING
+  // ─── WebView SpeechRecognition callbacks (same as web version) ───
+  const handleSTTResult = useCallback((text: string, isFinal: boolean) => {
+    if (isFinal && text.trim()) {
+      // Final result — auto translate + speak immediately (EXACTLY like web)
+      setInterimText("");
+      pushTurn(text.trim());
       setStatusMessage({
-        text: "🎙️ Listening... Please speak in Hindi! (बोलते रहिए...)",
-        type: "recording",
+        text: `✅ आवाज़ पहचानी: "${text.trim()}"`,
+        type: "success",
       });
-      const res = await startAudioRecording();
-      if (!res.success) {
-        setStatusMessage({
-          text: res.error || "Microphone permission was denied in device settings.",
-          type: "error",
-        });
-        return;
-      }
-      setIsRecording(true);
-      setRecordSeconds(0);
-      setLastRecordedUri(null);
     } else {
-      // STOP LISTENING & TRANSLATE
-      setIsRecording(false);
+      // Interim result — show live transcription preview
+      setInterimText(text);
+    }
+  }, []);
 
-      const recRes = await stopAudioRecording();
-      if (!recRes.success || !recRes.uri) {
-        setStatusMessage({
-          text: recRes.error || "Could not capture audio.",
-          type: "error",
-        });
-        return;
-      }
-
-      const capturedUri = recRes.uri;
-      setLastRecordedUri(capturedUri);
-
-      // If user already typed something, translate it instantly (no STT needed)
-      if (inputText.trim()) {
-        const text = inputText.trim();
-        setInputText("");
-        pushTurn(text, capturedUri);
-        setStatusMessage({
-          text: `✅ Translated & Spoken: "${text}"`,
-          type: "success",
-        });
-        return;
-      }
-
-      // IMMEDIATELY show the phrase picker so user can pick while STT runs in background
-      // (same as web: don't block user, show choices instantly)
+  const handleSTTError = useCallback((error: string) => {
+    if (error === "no-speech") {
       setStatusMessage({
-        text: "🔍 Hindi आवाज़ पहचान रहे हैं... (Groq Whisper AI)",
+        text: "कोई आवाज़ नहीं आई। फिर से बोलें या नीचे phrase चुनें!",
         type: "info",
       });
-
-      // Run Whisper STT in background — if it succeeds, auto-fill & translate
-      setIsTranscribing(true);
-      transcribeAudioFile(capturedUri).then((sttRes) => {
-        setIsTranscribing(false);
-        if (sttRes.success && sttRes.text) {
-          const spoken = sttRes.text.trim();
-          // Auto-translate immediately (like web does on speech result)
-          pushTurn(spoken, capturedUri);
-          setLastRecordedUri(null);
-          const providerLabel = sttRes.provider === "groq" ? "Groq Whisper" : "HuggingFace Whisper";
-          setStatusMessage({
-            text: `✅ आवाज़ पहचानी (${providerLabel}): "${spoken}"`,
-            type: "success",
-          });
-        } else {
-          // STT failed — user can still pick from phrase chips below
-          setStatusMessage({
-            text: "❌ आवाज़ पहचान नहीं हुई। साफ़ बोलें या नीचे phrase चुनें!",
-            type: "info",
-          });
-        }
+    } else {
+      setStatusMessage({
+        text: `❌ Speech error: ${error}`,
+        type: "error",
       });
+    }
+  }, []);
 
+  const handleSTTListeningChange = useCallback((listening: boolean) => {
+    setIsRecording(listening);
+    if (!listening) {
+      setInterimText("");
+    }
+  }, []);
+
+  // Toggle Live Microphone — uses WebView SpeechRecognition (same as web)
+  const handleMicToggle = () => {
+    if (!isRecording) {
+      // START LISTENING — same as web's getRecognizer("hi-IN").start()
+      setStatusMessage({
+        text: "🎙️ सुन रहे हैं... Hindi में बोलिए! (बोलते रहिए...)",
+        type: "recording",
+      });
+      setRecordSeconds(0);
+      setLastRecordedUri(null);
+      setInterimText("");
+      setIsRecording(true);
+      sttRef.current?.startListening(inputLang);
+    } else {
+      // STOP LISTENING — same as web's recognizer.stop()
+      sttRef.current?.stopListening();
+      setIsRecording(false);
+      setInterimText("");
     }
   };
 
@@ -359,6 +338,7 @@ export function LiveDialogueScreen() {
         : dailyPrompts;
 
   return (
+    <>
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
@@ -510,20 +490,25 @@ export function LiveDialogueScreen() {
 
         {/* Status Title & Duration */}
         <Text style={[styles.micStatusTitle, isRecording && styles.micStatusTitleRecording]}>
-          {isTranscribing
-            ? "⏳ Transcribing Voice with AI..."
-            : isRecording
-              ? `🔴 Listening... (00:${recordSeconds < 10 ? "0" : ""}${recordSeconds}s) — Tap to Stop`
-              : "Tap Mic to Speak in Hindi (बोलने के लिए दबाएं)"}
+          {isRecording
+            ? `🔴 सुन रहे हैं... (00:${recordSeconds < 10 ? "0" : ""}${recordSeconds}s) — रोकने के लिए दबाएं`
+            : "Mic दबाकर Hindi में बोलें (बोलने के लिए दबाएं)"}
         </Text>
 
-        <Text style={styles.micSubtitle}>
-          {isRecording
-            ? "Hindi me boliye — bolna pura hone par Stop dabayein!"
-            : "Mic dabakar bolein ya niche diye prompt par tap karein — turant " +
-              meta.name +
-              " me bolega!"}
-        </Text>
+        {/* Live interim text — shows what user is saying in real-time */}
+        {interimText ? (
+          <Text style={[styles.micSubtitle, { color: Colors.terracotta, fontWeight: "700", fontSize: 15 }]}>
+            🗣️ "{interimText}"
+          </Text>
+        ) : (
+          <Text style={styles.micSubtitle}>
+            {isRecording
+              ? "Hindi में बोलिए — real-time में text आएगा!"
+              : "Mic दबाकर बोलें या नीचे prompt पर tap करें — turant " +
+                meta.name +
+                " में translate होगा!"}
+          </Text>
+        )}
 
         {/* Recorded Audio Action Box & Quick Match Selector */}
         {lastRecordedUri && !isRecording && (
@@ -776,6 +761,14 @@ export function LiveDialogueScreen() {
         </View>
       ))}
     </ScrollView>
+    {/* Hidden WebView for SpeechRecognition — same as web browser API */}
+    <WebViewSTT
+      ref={sttRef}
+      onResult={handleSTTResult}
+      onError={handleSTTError}
+      onListeningChange={handleSTTListeningChange}
+    />
+    </>
   );
 }
 
