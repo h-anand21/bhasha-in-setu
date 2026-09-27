@@ -35,11 +35,7 @@ import {
   stopSpeech,
 } from "../services/speech";
 import { logProgressEvent } from "../services/database";
-import {
-  startAudioRecording,
-  stopAudioRecording,
-  transcribeAudioFile,
-} from "../services/stt";
+import { startAudioRecording, stopAudioRecording, transcribeAudioFile } from "../services/stt";
 
 type Turn = {
   id: number;
@@ -62,7 +58,9 @@ export function LiveDialogueScreen() {
   const [lastRecordedUri, setLastRecordedUri] = useState<string | null>(null);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [inputLang, setInputLang] = useState<"hi-IN" | "en-IN">("hi-IN");
-  const [activeCategory, setActiveCategory] = useState<"classroom" | "daily" | "numbers">("classroom");
+  const [activeCategory, setActiveCategory] = useState<"classroom" | "daily" | "numbers">(
+    "classroom",
+  );
 
   // Status feedback
   const [statusMessage, setStatusMessage] = useState<{
@@ -109,7 +107,7 @@ export function LiveDialogueScreen() {
           native: res.native,
           roman: res.roman,
         };
-      })
+      }),
     );
   }, [lang]);
 
@@ -141,7 +139,7 @@ export function LiveDialogueScreen() {
             Animated.timing(barAnim5, { toValue: 42, duration: 250, useNativeDriver: false }),
             Animated.timing(barAnim5, { toValue: 10, duration: 250, useNativeDriver: false }),
           ]),
-        ])
+        ]),
       );
       animLoop.start();
 
@@ -149,7 +147,7 @@ export function LiveDialogueScreen() {
         Animated.sequence([
           Animated.timing(pulseAnim, { toValue: 1.25, duration: 600, useNativeDriver: true }),
           Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-        ])
+        ]),
       );
       pulseLoop.start();
     } else {
@@ -346,8 +344,8 @@ export function LiveDialogueScreen() {
     activeCategory === "classroom"
       ? classroomPrompts
       : activeCategory === "numbers"
-      ? numbersPrompts
-      : dailyPrompts;
+        ? numbersPrompts
+        : dailyPrompts;
 
   return (
     <ScrollView
@@ -375,11 +373,7 @@ export function LiveDialogueScreen() {
       <View style={styles.langPickerCard}>
         <View style={styles.langPickerHeader}>
           <Text style={styles.sectionLabel}>TARGET TRIBAL LANGUAGE:</Text>
-          <TouchableOpacity
-            style={styles.testSpeakerBtn}
-            onPress={testSpeaker}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={styles.testSpeakerBtn} onPress={testSpeaker} activeOpacity={0.8}>
             <Volume2 size={13} color={Colors.terracotta} />
             <Text style={styles.testSpeakerText}>🔊 Test Sound</Text>
           </TouchableOpacity>
@@ -459,39 +453,19 @@ export function LiveDialogueScreen() {
         {/* Equalizer Soundwave Bars */}
         <View style={styles.equalizerRow}>
           <Animated.View
-            style={[
-              styles.eqBar,
-              isRecording && styles.eqBarRecording,
-              { height: barAnim1 },
-            ]}
+            style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim1 }]}
           />
           <Animated.View
-            style={[
-              styles.eqBar,
-              isRecording && styles.eqBarRecording,
-              { height: barAnim2 },
-            ]}
+            style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim2 }]}
           />
           <Animated.View
-            style={[
-              styles.eqBar,
-              isRecording && styles.eqBarRecording,
-              { height: barAnim3 },
-            ]}
+            style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim3 }]}
           />
           <Animated.View
-            style={[
-              styles.eqBar,
-              isRecording && styles.eqBarRecording,
-              { height: barAnim4 },
-            ]}
+            style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim4 }]}
           />
           <Animated.View
-            style={[
-              styles.eqBar,
-              isRecording && styles.eqBarRecording,
-              { height: barAnim5 },
-            ]}
+            style={[styles.eqBar, isRecording && styles.eqBarRecording, { height: barAnim5 }]}
           />
         </View>
 
@@ -509,10 +483,7 @@ export function LiveDialogueScreen() {
           )}
 
           <TouchableOpacity
-            style={[
-              styles.micButton,
-              isRecording && styles.micButtonRecording,
-            ]}
+            style={[styles.micButton, isRecording && styles.micButtonRecording]}
             onPress={handleMicToggle}
             activeOpacity={0.85}
           >
@@ -527,23 +498,20 @@ export function LiveDialogueScreen() {
         </View>
 
         {/* Status Title & Duration */}
-        <Text
-          style={[
-            styles.micStatusTitle,
-            isRecording && styles.micStatusTitleRecording,
-          ]}
-        >
+        <Text style={[styles.micStatusTitle, isRecording && styles.micStatusTitleRecording]}>
           {isTranscribing
             ? "⏳ Transcribing Voice with AI..."
             : isRecording
-            ? `🔴 Listening... (00:${recordSeconds < 10 ? "0" : ""}${recordSeconds}s) — Tap to Stop`
-            : "Tap Mic to Speak in Hindi (बोलने के लिए दबाएं)"}
+              ? `🔴 Listening... (00:${recordSeconds < 10 ? "0" : ""}${recordSeconds}s) — Tap to Stop`
+              : "Tap Mic to Speak in Hindi (बोलने के लिए दबाएं)"}
         </Text>
 
         <Text style={styles.micSubtitle}>
           {isRecording
             ? "Hindi me boliye — bolna pura hone par Stop dabayein!"
-            : "Mic dabakar bolein ya niche diye prompt par tap karein — turant " + meta.name + " me bolega!"}
+            : "Mic dabakar bolein ya niche diye prompt par tap karein — turant " +
+              meta.name +
+              " me bolega!"}
         </Text>
 
         {/* Recorded Audio Action Box & Quick Match Selector */}
@@ -635,62 +603,47 @@ export function LiveDialogueScreen() {
         <View style={styles.quickHeaderRow}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Sparkles size={16} color={Colors.terracotta} />
-            <Text style={styles.quickHeaderTitle}>1-Tap Classroom Commands (Direct Translation):</Text>
+            <Text style={styles.quickHeaderTitle}>
+              1-Tap Classroom Commands (Direct Translation):
+            </Text>
           </View>
           <Text style={styles.quickBadge}>⚡ ZERO DELAY</Text>
         </View>
         <Text style={styles.quickSubtext}>
-          Web app ki tarah kisi bhi command par tap karein — turant translate hoga aur phone speaker se bolega!
+          Web app ki tarah kisi bhi command par tap karein — turant translate hoga aur phone speaker
+          se bolega!
         </Text>
 
         {/* Category Tabs */}
         <View style={styles.categoryRow}>
           <TouchableOpacity
-            style={[
-              styles.catTab,
-              activeCategory === "classroom" && styles.catTabActive,
-            ]}
+            style={[styles.catTab, activeCategory === "classroom" && styles.catTabActive]}
             onPress={() => setActiveCategory("classroom")}
           >
             <Text
-              style={[
-                styles.catTabText,
-                activeCategory === "classroom" && styles.catTabTextActive,
-              ]}
+              style={[styles.catTabText, activeCategory === "classroom" && styles.catTabTextActive]}
             >
               Classroom (कक्षा)
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.catTab,
-              activeCategory === "numbers" && styles.catTabActive,
-            ]}
+            style={[styles.catTab, activeCategory === "numbers" && styles.catTabActive]}
             onPress={() => setActiveCategory("numbers")}
           >
             <Text
-              style={[
-                styles.catTabText,
-                activeCategory === "numbers" && styles.catTabTextActive,
-              ]}
+              style={[styles.catTabText, activeCategory === "numbers" && styles.catTabTextActive]}
             >
               Numbers (गिनती)
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.catTab,
-              activeCategory === "daily" && styles.catTabActive,
-            ]}
+            style={[styles.catTab, activeCategory === "daily" && styles.catTabActive]}
             onPress={() => setActiveCategory("daily")}
           >
             <Text
-              style={[
-                styles.catTabText,
-                activeCategory === "daily" && styles.catTabTextActive,
-              ]}
+              style={[styles.catTabText, activeCategory === "daily" && styles.catTabTextActive]}
             >
               Daily & Habits (दैनिक)
             </Text>
@@ -755,9 +708,7 @@ export function LiveDialogueScreen() {
       <View style={styles.streamHeaderRow}>
         <View style={styles.streamHeaderLeft}>
           <Zap size={15} color={Colors.salGreen} />
-          <Text style={styles.streamTitle}>
-            Live Dialogue Stream ({turns.length})
-          </Text>
+          <Text style={styles.streamTitle}>Live Dialogue Stream ({turns.length})</Text>
         </View>
         {turns.length > 0 && (
           <TouchableOpacity
