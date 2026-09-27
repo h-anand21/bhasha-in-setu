@@ -34,9 +34,11 @@ import { logProgressEvent } from "../services/database";
 import { extractTextFromImage } from "../services/ocr";
 import { StatusBadge } from "../components/StatusBadge";
 import { AudioButton } from "../components/AudioButton";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export function TranslateScreen({ navigation }: any) {
   const { lang, meta } = useLanguage();
+  const insets = useSafeAreaInsets();
   const [inputText, setInputText] = useState(
     "आज हम जानवरों के नाम सीखेंगे। हाथी, शेर, गाय, कुत्ता, बिल्ली।",
   );
@@ -170,7 +172,13 @@ export function TranslateScreen({ navigation }: any) {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: Math.max(insets.top + 6, 16),
+          paddingBottom: insets.bottom + 115,
+        },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       {/* Header Banner with Teacher Mascot & Badges */}

@@ -36,6 +36,7 @@ import {
 } from "../services/speech";
 import { logProgressEvent } from "../services/database";
 import { WebViewSTT, type WebViewSTTRef } from "../components/WebViewSTT";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Turn = {
   id: number;
@@ -49,6 +50,7 @@ type Turn = {
 
 export function LiveDialogueScreen() {
   const { lang, setLang, meta, languages } = useLanguage();
+  const insets = useSafeAreaInsets();
 
   // State
   const [inputText, setInputText] = useState("");
@@ -341,7 +343,13 @@ export function LiveDialogueScreen() {
     <>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: Math.max(insets.top + 6, 16),
+            paddingBottom: insets.bottom + 115,
+          },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         {/* Header */}

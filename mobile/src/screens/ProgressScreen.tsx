@@ -23,11 +23,13 @@ import { getProgressStats, type ProgressStats } from "../services/database";
 import { speakNative } from "../services/speech";
 import { StatusBadge } from "../components/StatusBadge";
 import { MetricCard } from "../components/MetricCard";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 
 export function ProgressScreen() {
   const { lang, meta } = useLanguage();
+  const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<ProgressStats | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "skills" | "usage" | "achievements">(
     "overview",
@@ -105,7 +107,13 @@ export function ProgressScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: Math.max(insets.top + 6, 16),
+          paddingBottom: insets.bottom + 115,
+        },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       {/* Top Header Badge */}

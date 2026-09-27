@@ -29,11 +29,13 @@ import { speakNative } from "../services/speech";
 import { type LangCode } from "../lib/lexicon";
 import { StatusBadge } from "../components/StatusBadge";
 import { AudioButton } from "../components/AudioButton";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 
 export function HomeScreen({ navigation }: any) {
   const { lang, setLang, meta, languages } = useLanguage();
+  const insets = useSafeAreaInsets();
 
   const scriptSamples = [
     { script: "Ol Chiki", char: "ᱚ", sample: "ᱡᱚᱦᱟᱨ", langName: "Santhali" },
@@ -45,7 +47,13 @@ export function HomeScreen({ navigation }: any) {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: Math.max(insets.top + 6, 16),
+          paddingBottom: insets.bottom + 115,
+        },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       {/* Top Badges */}
@@ -89,14 +97,20 @@ export function HomeScreen({ navigation }: any) {
           </View>
 
           {/* Teacher Avatar */}
-          <View style={styles.teacherAvatarContainer}>
+          <TouchableOpacity
+            style={styles.teacherAvatarContainer}
+            onPress={() => navigation.navigate("Profile")}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="View Profile"
+          >
             <View style={styles.teacherAvatarRing}>
               <View style={styles.teacherAvatarInner}>
                 <Text style={{ fontSize: 26 }}>👩‍🏫</Text>
               </View>
             </View>
             <View style={styles.onlineDot} />
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
 

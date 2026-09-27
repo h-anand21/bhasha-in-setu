@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { ChevronLeft, HelpCircle } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../theme/colors";
 
 interface AppHeaderProps {
@@ -22,8 +23,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   rightAction,
   onHelpPress,
 }) => {
+  const insets = useSafeAreaInsets();
+  const topPad = Math.max(insets.top, 12);
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: topPad }]}>
       <View style={styles.topRow}>
         {showBack ? (
           <TouchableOpacity
@@ -75,7 +79,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingTop: 8,
     paddingBottom: 12,
   },
   topRow: {
