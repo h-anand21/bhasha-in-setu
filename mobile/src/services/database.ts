@@ -82,10 +82,57 @@ function initializeDatabase(db: SQLite.SQLiteDatabase) {
     );
   `);
 
+// Seed default 16 NIPUN lessons and baseline classroom progress if empty
+function initializeDatabase(db: SQLite.SQLiteDatabase) {
+  // Create tables
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS lessons (
+      id TEXT PRIMARY KEY,
+      lesson_number INTEGER NOT NULL,
+      title_hi TEXT NOT NULL,
+      title_en TEXT NOT NULL,
+      outcome_hi TEXT NOT NULL,
+      outcome_en TEXT NOT NULL,
+      lines_json TEXT NOT NULL,
+      category TEXT NOT NULL,
+      is_synced INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS progress_events (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      lang TEXT NOT NULL,
+      words_count INTEGER DEFAULT 1,
+      metadata TEXT,
+      timestamp INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS saved_worksheets (
+      id TEXT PRIMARY KEY,
+      topic_id TEXT NOT NULL,
+      lesson_id TEXT NOT NULL,
+      lang TEXT NOT NULL,
+      worksheet_data TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+
   // Seed default 16 NIPUN lessons if empty
   const countRow = db.getFirstSync<{ count: number }>("SELECT COUNT(*) as count FROM lessons");
   if (!countRow || countRow.count === 0) {
     seedLessons(db);
+  }
+
+  // Seed baseline progress events if empty
+  const evtCount = db.getFirstSync<{ count: number }>("SELECT COUNT(*) as count FROM progress_events");
+  if (!evtCount || evtCount.count === 0) {
+    seedBaselineEvents(db);
   }
 }
 
@@ -116,6 +163,30 @@ function seedLessons(db: SQLite.SQLiteDatabase) {
       ],
     );
   });
+}
+
+function seedBaselineEvents(db: SQLite.SQLiteDatabase) {
+  const now = Date.now();
+  const DAY_MS = 86400000;
+  const baseline = [
+    { kind: "speech", lang: "sat", words: 18, meta: "Class 2 Morning Oral Turn", offset: 0.1 * DAY_MS },
+    { kind: "ocr", lang: "sat", words: 12, meta: "Blackboard Santhali Rhyme", offset: 0.3 * DAY_MS },
+    { kind: "worksheet", lang: "sat", words: 24, meta: "Animals & Nature Flashcards", offset: 1.1 * DAY_MS },
+    { kind: "speech", lang: "hoc", words: 14, meta: "Class 1 Counting in Ho", offset: 1.8 * DAY_MS },
+    { kind: "ocr", lang: "unr", words: 10, meta: "Mundari School Objects", offset: 2.5 * DAY_MS },
+    { kind: "speech", lang: "sat", words: 22, meta: "Classroom Dialogue - Greetings", offset: 3.2 * DAY_MS },
+    { kind: "worksheet", lang: "hoc", words: 16, meta: "Warang Citi Script Tracing", offset: 4.1 * DAY_MS },
+    { kind: "speech", lang: "sat", words: 20, meta: "Storytelling - Jungle Animals", offset: 5.2 * DAY_MS },
+    { kind: "ocr", lang: "sat", words: 15, meta: "Board Vocabulary Exercise", offset: 6.0 * DAY_MS },
+  ];
+
+  for (const b of baseline) {
+    const id = `evt_${now - Math.round(b.offset)}_${Math.random().toString(36).substring(2, 6)}`;
+    db.runSync(
+      "INSERT INTO progress_events (id, kind, lang, words_count, metadata, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+      [id, b.kind, b.lang, b.words, b.meta, now - Math.round(b.offset)],
+    );
+  }
 }
 
 // Query lessons with optional category and search filter
@@ -229,14 +300,93 @@ export function getProgressStats(): ProgressStats {
   const totalCount = totalRow?.count ?? SAMPLE_LESSONS.length;
 
   return {
-    totalWords: totalWords > 0 ? totalWords : 142, // baseline demo offset if brand new
-    totalEvents: events.length > 0 ? events.length : 18,
-    speechSessions: speechSessions > 0 ? speechSessions : 8,
-    worksheetsGenerated: worksheetsGenerated > 0 ? worksheetsGenerated : 5,
+    totalWords: totalWords > 0 ? totalWords : 151,
+    totalEvents: events.length > 0 ? events.length : 12,
+    speechSessions: speechSessions > 0 ? speechSessions : 6,
+    worksheetsGenerated: worksheetsGenerated > 0 ? worksheetsGenerated : 4,
     syncedLessonsCount: syncedCount,
     totalLessonsCount: totalCount,
     storageSizeBytes: 8.5 * 1024 * 1024, // ~8.5 MB estimated SQLite footprint
   };
+}
+
+// Get recent progress events
+export function getRecentProgressEvents(limit = 8): ProgressEventRecord[] {
+  const db = getDatabase();
+  const rows = db.getAllSync<{
+    id: string;
+    kind: "speech" | "ocr" | "worksheet" | "lesson";
+    lang: LangCode;
+    words_count: number;
+    metadata: string | null;
+    timestamp: number;
+  }>("SELECT * FROM progress_events ORDER BY timestamp DESC LIMIT ?", [limit]);
+
+  return rows.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    lang: r.lang,
+    words_count: r.words_count,
+    metadata: r.metadata ?? "",
+    timestamp: r.timestamp,
+  }));
+}
+
+// Get 7-day activity buckets for charting
+export function getWeeklyActivityBuckets(): { label: string; count: number; date: string }[] {
+  const db = getDatabase();
+  const now = new Date();
+  const buckets: { label: string; count: number; date: string }[] = [];
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+    const endOfDay = startOfDay + 86400000;
+
+    const row = db.getFirstSync<{ count: number }>(
+      "SELECT COUNT(*) as count FROM progress_events WHERE timestamp >= ? AND timestamp < ?",
+      [startOfDay, endOfDay],
+    );
+
+    const label = i === 0 ? "Today" : d.toLocaleDateString("en-IN", { weekday: "short" });
+    buckets.push({
+      label,
+      count: row?.count ?? 0,
+      date: d.toISOString().split("T")[0],
+    });
+  }
+
+  return buckets;
+}
+
+// Get distribution by language
+export function getLanguageActivityCounts(): Record<LangCode, number> {
+  const db = getDatabase();
+  const counts: Record<LangCode, number> = { sat: 0, hoc: 0, unr: 0 };
+  const rows = db.getAllSync<{ lang: LangCode; count: number }>(
+    "SELECT lang, COUNT(*) as count FROM progress_events GROUP BY lang",
+  );
+
+  rows.forEach((r) => {
+    if (counts[r.lang] !== undefined) {
+      counts[r.lang] = r.count;
+    }
+  });
+
+  return counts;
+}
+
+// Reset all progress events
+export function clearAllProgressEvents(): void {
+  const db = getDatabase();
+  db.runSync("DELETE FROM progress_events");
+}
+
+// Re-seed demo baseline
+export function seedDemoClassroomData(): void {
+  const db = getDatabase();
+  db.runSync("DELETE FROM progress_events");
+  seedBaselineEvents(db);
 }
 
 // Key-value settings
