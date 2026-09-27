@@ -259,7 +259,7 @@ export function LiveDialogueScreen() {
       // IMMEDIATELY show the phrase picker so user can pick while STT runs in background
       // (same as web: don't block user, show choices instantly)
       setStatusMessage({
-        text: "🎯 Aapne kya bola? Tab karein ya niche phrase chunein — turant translate hoga!",
+        text: "🔍 Hindi आवाज़ पहचान रहे हैं... (Groq Whisper AI)",
         type: "info",
       });
 
@@ -272,18 +272,20 @@ export function LiveDialogueScreen() {
           // Auto-translate immediately (like web does on speech result)
           pushTurn(spoken, capturedUri);
           setLastRecordedUri(null);
+          const providerLabel = sttRes.provider === "groq" ? "Groq Whisper" : "HuggingFace Whisper";
           setStatusMessage({
-            text: `✅ Voice Recognized & Translated: "${spoken}"`,
+            text: `✅ आवाज़ पहचानी (${providerLabel}): "${spoken}"`,
             type: "success",
           });
         } else {
           // STT failed — user can still pick from phrase chips below
           setStatusMessage({
-            text: "Voice pehchan nahi hui. Niche se phrase chunein ya type karein!",
+            text: "❌ आवाज़ पहचान नहीं हुई। साफ़ बोलें या नीचे phrase चुनें!",
             type: "info",
           });
         }
       });
+
     }
   };
 
